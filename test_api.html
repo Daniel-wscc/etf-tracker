@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API測試頁面</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+    </style>
+</head>
+<body>
+    <h1>股價API測試</h1>
+    <button onclick="testTaiwanAPI()">測試台灣股價API (0050)</button>
+    <button onclick="testYahooAPI()">測試Yahoo Finance API (VTI)</button>
+    
+    <div id="results"></div>
+
+    <script>
+        async function testTaiwanAPI() {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'test-result';
+            
+            try {
+                const apiUrl = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch=tse_0050.tw';
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
+                
+                resultDiv.innerHTML = '正在測試台灣證交所API...';
+                resultsDiv.appendChild(resultDiv);
+                
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const stockData = JSON.parse(data.contents);
+                
+                if (stockData.msgArray && stockData.msgArray.length > 0) {
+                    const stock = stockData.msgArray[0];
+                    resultDiv.className = 'test-result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ 台灣證交所API測試成功</h3>
+                        <p>股票代號: ${stock.c}</p>
+                        <p>股票名稱: ${stock.n}</p>
+                        <p>目前價格: ${stock.z || stock.y}</p>
+                        <p>昨收價: ${stock.y}</p>
+                        <p>漲跌: ${stock.z ? (parseFloat(stock.z) - parseFloat(stock.y)).toFixed(2) : '0.00'}</p>
+                    `;
+                } else {
+                    throw new Error('無法取得股票資料');
+                }
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ 台灣證交所API測試失敗</h3>
+                    <p>錯誤訊息: ${error.message}</p>
+                `;
+            }
+        }
+
+        async function testYahooAPI() {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'test-result';
+            
+            try {
+                const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/VTI';
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
+                
+                resultDiv.innerHTML = '正在測試Yahoo Finance API...';
+                resultsDiv.appendChild(resultDiv);
+                
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const yahooData = JSON.parse(data.contents);
+                
+                if (yahooData.chart && yahooData.chart.result && yahooData.chart.result.length > 0) {
+                    const result = yahooData.chart.result[0];
+                    const meta = result.meta;
+                    
+                    resultDiv.className = 'test-result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ Yahoo Finance API測試成功</h3>
+                        <p>股票代號: ${meta.symbol}</p>
+                        <p>目前價格: $${meta.regularMarketPrice || meta.previousClose}</p>
+                        <p>昨收價: $${meta.previousClose}</p>
+                        <p>貨幣: ${meta.currency}</p>
+                        <p>交易所: ${meta.exchangeName}</p>
+                    `;
+                } else {
+                    throw new Error('無法取得股票資料');
+                }
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Yahoo Finance API測試失敗</h3>
+                    <p>錯誤訊息: ${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

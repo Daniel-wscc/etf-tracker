@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF股價追蹤表格</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            min-width: 80px;
+        }
+
+        .control-group input, .control-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px 8px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        tr:hover {
+            background: #e3f2fd;
+        }
+
+        .positive {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .editable {
+            background: #fff3cd;
+            cursor: pointer;
+        }
+
+        .editable:hover {
+            background: #ffeaa7;
+        }
+
+        .price-update-failed {
+            background-color: #ffebee !important;
+        }
+
+        .price-update-failed:hover {
+            background-color: #ffcdd2 !important;
+        }
+
+        .summary {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .summary-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .summary-item h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .summary-item .value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            color: #dc3545;
+            text-align: center;
+            padding: 10px;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .control-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-group label {
+                min-width: auto;
+            }
+            
+            th, td {
+                padding: 8px 4px;
+                font-size: 12px;
+            }
+            
+            #allocationAnalysis {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .summary-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 ETF股價追蹤表格</h1>
+            <p>追蹤您的ETF投資組合，包含成本、股息、總資產等資訊</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>ETF代號:</label>
+                <input type="text" id="etfSymbol" placeholder="例如: 0050.TW" style="width: 150px;" onchange="updateCostCurrency()">
+                <label>購買股數:</label>
+                <input type="number" id="shares" placeholder="股數" style="width: 100px;">
+                <label>購買成本:</label>
+                <input type="number" id="cost" placeholder="每股成本" step="0.01" style="width: 100px;">
+                <span id="costCurrency" style="font-size: 12px; color: #666; margin-left: 5px;">TWD</span>
+                <button class="btn btn-success" onclick="addETF()">新增ETF</button>
+            </div>
+            <div class="control-group">
+                <label>常見ETF:</label>
+                <select id="popularETF" onchange="fillPopularETF()" style="width: 120px;">
+                    <option value="">選擇ETF</option>
+                    <option value="0050.TW">0050 元大台灣50</option>
+                    <option value="0056.TW">0056 元大高股息</option>
+                    <option value="00878.TW">00878 國泰永續高股息</option>
+                    <option value="00679B.TW">00679B 元大美債20年</option>
+                    <option value="00692.TW">00692 富邦公司治理</option>
+                    <option value="00881.TW">00881 國泰台灣5G+</option>
+                    <option value="VTI">VTI 美國整體股市</option>
+                    <option value="SPY">SPY 標普500</option>
+                    <option value="QQQ">QQQ 那斯達克100</option>
+                </select>
+                <button class="btn" onclick="showHelp()">❓ 使用說明</button>
+            </div>
+            <div class="control-group">
+                <button class="btn" onclick="refreshAllPrices()">🔄 更新所有股價</button>
+                <button class="btn" onclick="updateExchangeRate()">💱 更新匯率</button>
+                <label>美元匯率:</label>
+                <input type="number" id="usdRate" step="0.01" min="20" max="40" style="width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="updateManualExchangeRate()">
+                <span id="rateUpdate" style="font-size: 12px; color: #666;"></span>
+            </div>
+            <div class="control-group">
+                <button class="btn" onclick="exportData()">📤 匯出資料</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData()">
+                <button class="btn" onclick="document.getElementById('importFile').click()">📥 匯入資料</button>
+                <button class="btn btn-danger" onclick="clearAllData()">🗑️ 清除所有資料</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div id="loading" class="loading" style="display: none;">正在載入股價資料...</div>
+            <div id="error" class="error" style="display: none;"></div>
+            
+            <table id="etfTable">
+                <thead>
+                    <tr>
+                        <th>ETF代號</th>
+                        <th>股數</th>
+                        <th>購買成本</th>
+                        <th>目前股價</th>
+                        <th>漲跌幅</th>
+                        <th>市值</th>
+                        <th>配置比例</th>
+                        <th>總成本</th>
+                        <th>未實現損益</th>
+                        <th>報酬率(%)</th>
+                        <th>當年領息</th>
+                        <th>當年總資產</th>
+                        <th>更新時間</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="etfTableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="summary">
+            <h2 style="margin-bottom: 20px; text-align: center;">📊 投資組合總覽</h2>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <h3>總投資成本</h3>
+                    <div class="value" id="totalCost">$0</div>
+                </div>
+                <div class="summary-item">
+                    <h3>總市值</h3>
+                    <div class="value" id="totalValue">$0</div>
+                </div>
+                <div class="summary-item">
+                    <h3>總損益</h3>
+                    <div class="value" id="totalPnL">$0</div>
+                </div>
+                <div class="summary-item">
+                    <h3>總報酬率</h3>
+                    <div class="value" id="totalReturn">0%</div>
+                </div>
+                <div class="summary-item">
+                    <h3>當年總領息</h3>
+                    <div class="value" id="totalDividend">$0</div>
+                </div>
+                <div class="summary-item">
+                    <h3>當年總資產</h3>
+                    <div class="value" id="totalAssets">$0</div>
+                </div>
+            </div>
+            
+            <!-- 資產配置分析 -->
+            <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                <h3 style="margin-bottom: 15px; text-align: center;">📊 資產配置分析</h3>
+                <div id="allocationAnalysis" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- 配置列表 -->
+                    <div>
+                        <h4 style="margin-bottom: 10px;">配置明細</h4>
+                        <div id="allocationList" style="max-height: 300px; overflow-y: auto;">
+                        </div>
+                    </div>
+                    
+                    <!-- 配置建議 -->
+                    <div>
+                        <h4 style="margin-bottom: 10px;">配置建議</h4>
+                        <div id="allocationAdvice" style="font-size: 14px; line-height: 1.6;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GK動態提領法區塊 -->
+        <div class="summary">
+            <h2 style="margin-bottom: 20px; text-align: center;">🎯 GK動態提領法</h2>
+            
+            <!-- GK設定區 -->
+            <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px;">⚙️ GK提領設定</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">初始提領率 (%):</label>
+                        <input type="number" id="initialRate" step="0.1" min="0" max="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">投資組合起始價值:</label>
+                        <input type="number" id="startValue" step="1000" min="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">最大增幅 (%):</label>
+                        <input type="number" id="maxIncrease" step="1" min="0" max="50" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">最大減幅 (%):</label>
+                        <input type="number" id="maxDecrease" step="1" min="0" max="50" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <button class="btn btn-success" onclick="enableGK()">啟用GK提領法</button>
+                    <button class="btn" onclick="updateGKSettings()">更新設定</button>
+                    <button class="btn btn-danger" onclick="disableGK()">停用GK提領法</button>
+                </div>
+            </div>
+
+            <!-- GK狀態顯示 -->
+            <div id="gkStatus" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px;">📈 目前GK狀態</h3>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <h3>GK狀態</h3>
+                        <div class="value" id="gkEnabled">未啟用</div>
+                    </div>
+                    <div class="summary-item">
+                        <h3>建議提領金額</h3>
+                        <div class="value" id="suggestedWithdrawal">$0</div>
+                    </div>
+                    <div class="summary-item">
+                        <h3>目前提領率</h3>
+                        <div class="value" id="currentRate">0%</div>
+                    </div>
+                    <div class="summary-item">
+                        <h3>與初始提領率差異</h3>
+                        <div class="value" id="rateDifference">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 年度記錄區 -->
+            <div style="background: white; padding: 20px; border-radius: 8px;">
+                <h3 style="margin-bottom: 15px;">📅 年度報酬率記錄</h3>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <input type="number" id="recordYear" placeholder="年份" min="2000" max="2100" style="width: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="number" id="yearReturn" placeholder="報酬率 (%)" step="0.01" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="number" id="yearStartValue" placeholder="年初資產" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="number" id="yearEndValue" placeholder="年末資產" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="number" id="yearWithdrawal" placeholder="實際提領" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <button class="btn btn-success" onclick="addYearlyRecord()">新增記錄</button>
+                    <button class="btn" onclick="autoCalculateCurrentYear()">自動計算本年</button>
+                </div>
+                
+                <div style="overflow-x: auto;">
+                    <table id="yearlyTable" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">年份</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">年初資產</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">年末資產</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">報酬率</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">實際提領</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">建議提領</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">提領率</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="yearlyTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let etfData = JSON.parse(localStorage.getItem('etfData')) || [];
+        let yearlyData = JSON.parse(localStorage.getItem('yearlyData')) || [];
+        let gkSettings = JSON.parse(localStorage.getItem('gkSettings')) || {
+            initialWithdrawalRate: 4.0,
+            currentWithdrawalAmount: 0,
+            portfolioStartValue: 0,
+            maxIncrease: 10,
+            maxDecrease: 10,
+            enabled: false
+        };
+        let exchangeRate = JSON.parse(localStorage.getItem('exchangeRate')) || {
+            usdToTwd: 31.5,
+            lastUpdate: null
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            renderTable();
+            updateSummary();
+            renderYearlyData();
+            updateGKDisplay();
+            updateExchangeRateDisplay();
+        });
+
+        // 新增ETF
+        function addETF() {
+            const symbol = document.getElementById('etfSymbol').value.trim();
+            const shares = parseFloat(document.getElementById('shares').value);
+            const inputCost = parseFloat(document.getElementById('cost').value);
+
+            if (!symbol || !shares || !inputCost) {
+                alert('請填入完整的ETF資訊');
+                return;
+            }
+
+            // 判斷是否為美股，如果是美股則將成本轉換為台幣
+            const isUSStock = !isTaiwanStock(symbol);
+            let costInTWD = inputCost;
+            let originalCost = inputCost;
+            
+            if (isUSStock) {
+                costInTWD = inputCost * exchangeRate.usdToTwd;
+                originalCost = inputCost; // 保存原始美元成本
+            }
+
+            // 檢查是否已存在
+            const existingIndex = etfData.findIndex(item => item.symbol === symbol);
+            if (existingIndex !== -1) {
+                if (confirm('此ETF已存在，是否要更新資料？')) {
+                    etfData[existingIndex].shares = shares;
+                    etfData[existingIndex].cost = Math.round(costInTWD * 100) / 100;
+                    etfData[existingIndex].originalCost = isUSStock ? originalCost : null;
+                    etfData[existingIndex].currency = isUSStock ? 'USD' : 'TWD';
+                }
+            } else {
+                const newETF = {
+                    symbol: symbol,
+                    shares: shares,
+                    cost: Math.round(costInTWD * 100) / 100,
+                    originalCost: isUSStock ? originalCost : null,
+                    currency: isUSStock ? 'USD' : 'TWD',
+                    currentPrice: 0,
+                    dividend: 0,
+                    totalAssets: 0,
+                    lastUpdate: null
+                };
+                etfData.push(newETF);
+            }
+
+            // 清空輸入框
+            document.getElementById('etfSymbol').value = '';
+            document.getElementById('shares').value = '';
+            document.getElementById('cost').value = '';
+            updateCostCurrency(); // 重置貨幣顯示
+
+            saveData();
+            renderTable();
+            updateSummary();
+            
+            // 自動獲取股價
+            if (existingIndex === -1) {
+                fetchPrice(symbol);
+            }
+        }
+
+        // 獲取股價 (使用台灣證交所真實API)
+        async function fetchPrice(symbol) {
+            const index = etfData.findIndex(item => item.symbol === symbol);
+            if (index === -1) return;
+
+            try {
+                showLoading(true);
+                
+                // 判斷是台灣股票還是國外股票
+                if (isTaiwanStock(symbol)) {
+                    await fetchTaiwanPrice(symbol, index);
+                } else {
+                    await fetchInternationalPrice(symbol, index);
+                }
+                
+                saveData();
+                renderTable();
+                updateSummary();
+                
+            } catch (error) {
+                showError('獲取股價失敗: ' + error.message);
+                console.error('Error fetching price:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 判斷是否為台灣股票
+        function isTaiwanStock(symbol) {
+            return symbol.toLowerCase().includes('.tw') || 
+                   /^\d{4}$/.test(symbol) || 
+                   /^\d{5}$/.test(symbol);
+        }
+
+        // 獲取台灣股價
+        async function fetchTaiwanPrice(symbol, index) {
+            // 處理股票代號格式
+            let stockCode = symbol.replace('.TW', '').replace('.tw', '');
+            
+            // 判斷交易所
+            let exchange = 'tse'; // 預設為上市
+            if (stockCode.startsWith('00') || parseInt(stockCode) >= 6000) {
+                exchange = 'otc'; // 上櫃
+            }
+            
+            const apiUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch=${exchange}_${stockCode}.tw`;
+            
+            try {
+                // 使用代理服務來避免CORS問題
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
+                const response = await fetch(proxyUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const stockData = JSON.parse(data.contents);
+                
+                if (stockData.msgArray && stockData.msgArray.length > 0) {
+                    const stock = stockData.msgArray[0];
+                    const price = parseFloat(stock.z) || parseFloat(stock.y); // z是成交價，y是昨收價
+                    
+                    if (price && price > 0) {
+                        etfData[index].currentPrice = price;
+                        etfData[index].lastUpdate = new Date().toLocaleString('zh-TW');
+                        etfData[index].priceChange = stock.z ? parseFloat(stock.z) - parseFloat(stock.y) : 0;
+                        etfData[index].priceChangePercent = stock.z ? ((parseFloat(stock.z) - parseFloat(stock.y)) / parseFloat(stock.y) * 100) : 0;
+                        // 清除失敗標記
+                        delete etfData[index].priceUpdateFailed;
+                    } else {
+                        throw new Error('無法取得有效股價');
+                    }
+                } else {
+                    throw new Error('找不到股票資料，請檢查股票代號');
+                }
+            } catch (error) {
+                // 如果API失敗，嘗試備用方案
+                console.warn('主要API失敗，嘗試備用方案:', error);
+                await fetchTaiwanPriceBackup(symbol, index);
+            }
+        }
+
+        // 台灣股價備用API
+        async function fetchTaiwanPriceBackup(symbol, index) {
+            try {
+                // 使用Yahoo Finance作為備用
+                const yahooSymbol = symbol.includes('.TW') ? symbol : symbol + '.TW';
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
+
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const yahooData = JSON.parse(data.contents);
+
+                if (yahooData.chart && yahooData.chart.result && yahooData.chart.result.length > 0) {
+                    const result = yahooData.chart.result[0];
+                    const price = result.meta.regularMarketPrice || result.meta.previousClose;
+
+                    if (price && price > 0) {
+                        etfData[index].currentPrice = Math.round(price * 100) / 100;
+                        etfData[index].lastUpdate = new Date().toLocaleString('zh-TW');
+                        // 清除失敗標記
+                        delete etfData[index].priceUpdateFailed;
+                    } else {
+                        throw new Error('備用API也無法取得股價');
+                    }
+                } else {
+                    throw new Error('備用API回應格式錯誤');
+                }
+            } catch (error) {
+                // 所有API都失敗，標記為失敗狀態
+                console.warn('所有API都失敗，維持原本價格:', error);
+                etfData[index].priceUpdateFailed = true;
+                etfData[index].lastUpdate = new Date().toLocaleString('zh-TW') + ' (更新失敗)';
+            }
+        }
+
+        // 獲取國際股價 (使用Yahoo Finance)
+        async function fetchInternationalPrice(symbol, index) {
+            try {
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
+
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const yahooData = JSON.parse(data.contents);
+
+                if (yahooData.chart && yahooData.chart.result && yahooData.chart.result.length > 0) {
+                    const result = yahooData.chart.result[0];
+                    const usdPrice = result.meta.regularMarketPrice || result.meta.previousClose;
+                    const currency = result.meta.currency || 'USD';
+
+                    if (usdPrice && usdPrice > 0) {
+                        // 如果是美元，轉換成台幣
+                        let twdPrice = usdPrice;
+                        if (currency === 'USD') {
+                            twdPrice = usdPrice * exchangeRate.usdToTwd;
+                        }
+
+                        etfData[index].currentPrice = Math.round(twdPrice * 100) / 100;
+                        etfData[index].originalPrice = usdPrice; // 保存原始美元價格
+                        etfData[index].currency = currency;
+                        etfData[index].lastUpdate = new Date().toLocaleString('zh-TW');
+                        // 清除失敗標記
+                        delete etfData[index].priceUpdateFailed;
+                    } else {
+                        throw new Error('無法取得有效股價');
+                    }
+                } else {
+                    throw new Error('找不到股票資料');
+                }
+            } catch (error) {
+                console.warn('國際股價API失敗，維持原本價格:', error);
+                etfData[index].priceUpdateFailed = true;
+                etfData[index].lastUpdate = new Date().toLocaleString('zh-TW') + ' (更新失敗)';
+            }
+        }
+
+
+
+        // 更新所有股價
+        async function refreshAllPrices() {
+            if (etfData.length === 0) {
+                alert('請先新增ETF');
+                return;
+            }
+
+            showLoading(true);
+            
+            for (let i = 0; i < etfData.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, 500)); // 避免API限制
+                await fetchPrice(etfData[i].symbol);
+            }
+            
+            showLoading(false);
+        }
+
+        // 渲染表格
+        function renderTable() {
+            const tbody = document.getElementById('etfTableBody');
+            tbody.innerHTML = '';
+
+            // 計算總市值用於配置比例計算
+            let totalPortfolioValue = 0;
+            etfData.forEach(item => {
+                totalPortfolioValue += item.currentPrice * item.shares;
+            });
+
+            etfData.forEach((item, index) => {
+                const row = document.createElement('tr');
+
+                // 如果股價更新失敗，添加紅色背景樣式
+                if (item.priceUpdateFailed) {
+                    row.classList.add('price-update-failed');
+                }
+
+                const marketValue = item.currentPrice * item.shares;
+                const totalCost = item.cost * item.shares;
+                const pnl = marketValue - totalCost;
+                const returnRate = totalCost > 0 ? (pnl / totalCost * 100) : 0;
+                const totalAssetsWithDividend = marketValue + item.dividend;
+
+                // 計算配置比例
+                const allocationPercentage = totalPortfolioValue > 0 ? (marketValue / totalPortfolioValue * 100) : 0;
+
+                // 計算漲跌幅顯示
+                const priceChangePercent = item.priceChangePercent || 0;
+                const priceChangeDisplay = priceChangePercent !== 0 ? 
+                    `<span class="${priceChangePercent >= 0 ? 'positive' : 'negative'}">${priceChangePercent >= 0 ? '+' : ''}${priceChangePercent.toFixed(2)}%</span>` : 
+                    '<span style="color: #666;">--</span>';
+
+                // 價格顯示：如果是美股，顯示台幣價格和原始美元價格
+                let priceDisplay = `$${item.currentPrice.toFixed(2)}`;
+                if (item.currency === 'USD' && item.originalPrice) {
+                    priceDisplay = `$${item.currentPrice.toFixed(2)}<br><small style="color: #666;">($${item.originalPrice.toFixed(2)} USD)</small>`;
+                }
+
+                // 成本顯示：如果是美股，顯示台幣成本和原始美元成本
+                let costDisplay = `$${item.cost.toFixed(2)}`;
+                if (item.currency === 'USD' && item.originalCost) {
+                    costDisplay = `$${item.cost.toFixed(2)}<br><small style="color: #666;">($${item.originalCost.toFixed(2)} USD)</small>`;
+                }
+
+                // 配置比例顯示，根據比例大小使用不同顏色
+                let allocationColor = '#333';
+                if (allocationPercentage >= 30) allocationColor = '#dc3545'; // 紅色：高配置
+                else if (allocationPercentage >= 20) allocationColor = '#fd7e14'; // 橙色：中高配置
+                else if (allocationPercentage >= 10) allocationColor = '#ffc107'; // 黃色：中配置
+                else if (allocationPercentage >= 5) allocationColor = '#28a745'; // 綠色：低配置
+                else allocationColor = '#6c757d'; // 灰色：極低配置
+
+                const allocationDisplay = `<span style="color: ${allocationColor}; font-weight: bold;">${allocationPercentage.toFixed(1)}%</span>`;
+
+                row.innerHTML = `
+                    <td><strong>${item.symbol}</strong></td>
+                    <td>${item.shares.toLocaleString()}</td>
+                    <td>${costDisplay}</td>
+                    <td>${priceDisplay}</td>
+                    <td>${priceChangeDisplay}</td>
+                    <td>$${marketValue.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td>${allocationDisplay}</td>
+                    <td>$${totalCost.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td class="${pnl >= 0 ? 'positive' : 'negative'}">$${pnl.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td class="${returnRate >= 0 ? 'positive' : 'negative'}">${returnRate.toFixed(2)}%</td>
+                    <td class="editable" onclick="editDividend(${index})">$${item.dividend.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td>$${totalAssetsWithDividend.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td>${item.lastUpdate || '未更新'}</td>
+                    <td>
+                        <button class="btn" onclick="fetchPrice('${item.symbol}')" style="padding: 5px 10px; font-size: 12px;">更新</button>
+                        <button class="btn btn-danger" onclick="removeETF(${index})" style="padding: 5px 10px; font-size: 12px;">刪除</button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // 編輯股息
+        function editDividend(index) {
+            const currentDividend = etfData[index].dividend;
+            const newDividend = prompt('請輸入當年領息金額:', currentDividend);
+            
+            if (newDividend !== null && !isNaN(newDividend)) {
+                etfData[index].dividend = parseFloat(newDividend);
+                saveData();
+                renderTable();
+                updateSummary();
+            }
+        }
+
+        // 刪除ETF
+        function removeETF(index) {
+            if (confirm('確定要刪除這個ETF嗎？')) {
+                etfData.splice(index, 1);
+                saveData();
+                renderTable();
+                updateSummary();
+            }
+        }
+
+        // 更新總覽
+        function updateSummary() {
+            let totalCost = 0;
+            let totalValue = 0;
+            let totalDividend = 0;
+
+            etfData.forEach(item => {
+                totalCost += item.cost * item.shares;
+                totalValue += item.currentPrice * item.shares;
+                totalDividend += item.dividend;
+            });
+
+            const totalPnL = totalValue - totalCost;
+            const totalReturn = totalCost > 0 ? (totalPnL / totalCost * 100) : 0;
+            const totalAssets = totalValue + totalDividend;
+
+            document.getElementById('totalCost').textContent = `$${totalCost.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+            document.getElementById('totalValue').textContent = `$${totalValue.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+            
+            const pnlElement = document.getElementById('totalPnL');
+            pnlElement.textContent = `$${totalPnL.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+            pnlElement.className = `value ${totalPnL >= 0 ? 'positive' : 'negative'}`;
+            
+            const returnElement = document.getElementById('totalReturn');
+            returnElement.textContent = `${totalReturn.toFixed(2)}%`;
+            returnElement.className = `value ${totalReturn >= 0 ? 'positive' : 'negative'}`;
+            
+            document.getElementById('totalDividend').textContent = `$${totalDividend.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+            document.getElementById('totalAssets').textContent = `$${totalAssets.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+            
+            // 更新資產配置分析
+            updateAllocationAnalysis(totalValue);
+        }
+
+        // 更新資產配置分析
+        function updateAllocationAnalysis(totalValue) {
+            const allocationList = document.getElementById('allocationList');
+            const allocationAdvice = document.getElementById('allocationAdvice');
+            
+            if (etfData.length === 0 || totalValue === 0) {
+                allocationList.innerHTML = '<p style="color: #666; text-align: center;">暫無資料</p>';
+                allocationAdvice.innerHTML = '<p style="color: #666;">請先新增ETF並更新股價</p>';
+                return;
+            }
+
+            // 計算每個ETF的配置比例並排序
+            const allocations = etfData.map(item => {
+                const marketValue = item.currentPrice * item.shares;
+                const percentage = (marketValue / totalValue * 100);
+                return {
+                    symbol: item.symbol,
+                    marketValue: marketValue,
+                    percentage: percentage,
+                    currency: item.currency || 'TWD'
+                };
+            }).sort((a, b) => b.percentage - a.percentage);
+
+            // 渲染配置列表
+            let listHTML = '';
+            allocations.forEach((allocation, index) => {
+                let barColor = '#6c757d';
+                if (allocation.percentage >= 30) barColor = '#dc3545';
+                else if (allocation.percentage >= 20) barColor = '#fd7e14';
+                else if (allocation.percentage >= 10) barColor = '#ffc107';
+                else if (allocation.percentage >= 5) barColor = '#28a745';
+
+                const barWidth = Math.max(allocation.percentage, 2); // 最小寬度2%以便顯示
+
+                listHTML += `
+                    <div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-weight: bold;">${allocation.symbol}</span>
+                            <span style="color: ${barColor}; font-weight: bold;">${allocation.percentage.toFixed(1)}%</span>
+                        </div>
+                        <div style="background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="background: ${barColor}; height: 100%; width: ${barWidth}%; transition: width 0.3s ease;"></div>
+                        </div>
+                        <div style="font-size: 12px; color: #666; margin-top: 2px;">
+                            $${allocation.marketValue.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}
+                        </div>
+                    </div>
+                `;
+            });
+            allocationList.innerHTML = listHTML;
+
+            // 生成配置建議
+            let adviceHTML = '';
+            
+            // 分析配置集中度
+            const topThreePercentage = allocations.slice(0, 3).reduce((sum, item) => sum + item.percentage, 0);
+            const maxAllocation = allocations[0]?.percentage || 0;
+            
+            // 分析地區配置
+            const taiwanETFs = allocations.filter(item => item.currency === 'TWD' || item.currency !== 'USD');
+            const usETFs = allocations.filter(item => item.currency === 'USD');
+            const taiwanPercentage = taiwanETFs.reduce((sum, item) => sum + item.percentage, 0);
+            const usPercentage = usETFs.reduce((sum, item) => sum + item.percentage, 0);
+
+            adviceHTML += '<div style="margin-bottom: 15px;">';
+            adviceHTML += '<h5 style="color: #495057; margin-bottom: 8px;">🎯 配置分析</h5>';
+            
+            if (maxAllocation > 50) {
+                adviceHTML += '<p style="color: #dc3545;">⚠️ 單一標的配置過高 (' + maxAllocation.toFixed(1) + '%)，建議分散投資</p>';
+            } else if (maxAllocation > 30) {
+                adviceHTML += '<p style="color: #fd7e14;">⚡ 單一標的配置較高 (' + maxAllocation.toFixed(1) + '%)，注意風險控制</p>';
+            } else {
+                adviceHTML += '<p style="color: #28a745;">✅ 配置分散度良好，風險相對分散</p>';
+            }
+
+            if (topThreePercentage > 80) {
+                adviceHTML += '<p style="color: #dc3545;">⚠️ 前三大標的佔比過高 (' + topThreePercentage.toFixed(1) + '%)，建議增加其他標的</p>';
+            }
+            adviceHTML += '</div>';
+
+            adviceHTML += '<div style="margin-bottom: 15px;">';
+            adviceHTML += '<h5 style="color: #495057; margin-bottom: 8px;">🌍 地區配置</h5>';
+            if (taiwanPercentage > 0) {
+                adviceHTML += '<p>🇹🇼 台股/台幣: ' + taiwanPercentage.toFixed(1) + '%</p>';
+            }
+            if (usPercentage > 0) {
+                adviceHTML += '<p>🇺🇸 美股: ' + usPercentage.toFixed(1) + '%</p>';
+            }
+            
+            if (taiwanPercentage > 70) {
+                adviceHTML += '<p style="color: #fd7e14;">💡 建議增加國際配置以分散地區風險</p>';
+            } else if (usPercentage > 70) {
+                adviceHTML += '<p style="color: #fd7e14;">💡 建議增加台股配置以平衡匯率風險</p>';
+            } else if (taiwanPercentage > 0 && usPercentage > 0) {
+                adviceHTML += '<p style="color: #28a745;">✅ 地區配置平衡，有助分散風險</p>';
+            }
+            adviceHTML += '</div>';
+
+            adviceHTML += '<div>';
+            adviceHTML += '<h5 style="color: #495057; margin-bottom: 8px;">📊 建議配置</h5>';
+            adviceHTML += '<p style="font-size: 13px; color: #666;">• 單一標的建議不超過30%</p>';
+            adviceHTML += '<p style="font-size: 13px; color: #666;">• 前五大標的建議不超過80%</p>';
+            adviceHTML += '<p style="font-size: 13px; color: #666;">• 考慮地區分散：台股50-70%，國際30-50%</p>';
+            adviceHTML += '<p style="font-size: 13px; color: #666;">• 定期檢視並再平衡配置</p>';
+            adviceHTML += '</div>';
+
+            allocationAdvice.innerHTML = adviceHTML;
+        }
+
+        // 儲存資料
+        function saveData() {
+            localStorage.setItem('etfData', JSON.stringify(etfData));
+        }
+
+        // 匯出資料
+        function exportData() {
+            if (etfData.length === 0) {
+                alert('沒有資料可以匯出');
+                return;
+            }
+
+            const dataStr = JSON.stringify(etfData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `etf_data_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+        }
+
+        // 匯入資料
+        function importData() {
+            const file = document.getElementById('importFile').files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        etfData = importedData;
+                        saveData();
+                        renderTable();
+                        updateSummary();
+                        alert('資料匯入成功！');
+                    } else {
+                        alert('檔案格式錯誤');
+                    }
+                } catch (error) {
+                    alert('檔案讀取失敗: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 清除所有資料
+        function clearAllData() {
+            if (confirm('確定要清除所有資料嗎？此操作無法復原！')) {
+                etfData = [];
+                saveData();
+                renderTable();
+                updateSummary();
+            }
+        }
+
+        // 顯示載入狀態
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // 顯示錯誤訊息
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // 填入常見ETF
+        function fillPopularETF() {
+            const select = document.getElementById('popularETF');
+            const symbol = select.value;
+            if (symbol) {
+                document.getElementById('etfSymbol').value = symbol;
+                select.value = ''; // 重置選擇
+                updateCostCurrency(); // 更新貨幣顯示
+            }
+        }
+
+        // 更新成本貨幣顯示
+        function updateCostCurrency() {
+            const symbol = document.getElementById('etfSymbol').value.trim();
+            const costCurrencySpan = document.getElementById('costCurrency');
+            const costInput = document.getElementById('cost');
+            
+            if (symbol && !isTaiwanStock(symbol)) {
+                costCurrencySpan.textContent = 'USD';
+                costInput.placeholder = '每股成本 (美元)';
+            } else {
+                costCurrencySpan.textContent = 'TWD';
+                costInput.placeholder = '每股成本 (台幣)';
+            }
+        }
+
+        // 顯示使用說明
+        function showHelp() {
+            const helpText = `
+📈 ETF股價追蹤表格 + GK動態提領法使用說明
+
+🎯 基本功能：
+• 新增ETF：輸入代號、股數、成本後點擊「新增ETF」
+• 更新股價：點擊「更新所有股價」或個別「更新」按鈕
+• 編輯股息：點擊表格中的「當年領息」欄位可編輯金額
+• 資料管理：支援匯出/匯入JSON格式資料
+
+📊 支援的股票格式：
+• 台灣股票：0050.TW、0056.TW、00878.TW 等
+• 美國股票：VTI、SPY、QQQ 等
+• 也可以只輸入數字：0050、0056 等
+
+💡 股價來源：
+• 台灣股票：使用台灣證交所官方API
+• 國際股票：使用Yahoo Finance API，自動轉換為台幣顯示
+• 備用機制：如果主要API失敗會自動切換備用來源
+
+💱 匯率功能：
+• 美股ETF價格和成本自動轉換為台幣顯示
+• 支援自動更新匯率或手動設定
+• 顯示台幣價格/成本和原始美元價格/成本
+• 匯率變動時自動重新計算所有美股數據
+
+🎯 GK動態提領法功能：
+• 設定初始提領率（建議4%）和投資組合起始價值
+• 設定最大增減幅（建議10%）
+• 記錄每年的報酬率和實際提領金額
+• 系統會根據前一年報酬率自動計算建議提領金額
+
+📅 GK提領規則：
+• 正報酬年：可增加提領金額（不超過最大增幅）
+• 負報酬年：需減少提領金額（不超過最大減幅）
+• 目標：維持退休期間的穩定現金流
+
+🔄 自動計算：
+• 市值 = 目前股價 × 股數
+• 未實現損益 = 市值 - 總成本
+• 報酬率 = 未實現損益 ÷ 總成本 × 100%
+• 當年總資產 = 市值 + 當年領息
+• GK建議提領 = 根據前年報酬率動態調整
+
+📝 使用流程：
+1. 新增ETF並更新股價
+2. 設定GK提領法參數並啟用
+3. 每年記錄年度報酬率（可使用自動計算）
+4. 參考系統建議的提領金額進行提領
+5. 定期匯出備份資料
+
+⚠️ 注意事項：
+• 股價資料可能有延遲，僅供參考
+• GK提領法適用於退休階段的投資組合
+• 建議定期備份資料（匯出功能）
+• 年度報酬率需要手動記錄以確保準確性
+
+快捷鍵：Ctrl + Enter = 新增ETF
+            `;
+            alert(helpText);
+        }
+
+        // ==================== GK動態提領法相關函數 ====================
+
+        // 啟用GK提領法
+        function enableGK() {
+            const initialRate = parseFloat(document.getElementById('initialRate').value);
+            const startValue = parseFloat(document.getElementById('startValue').value);
+            const maxIncrease = parseFloat(document.getElementById('maxIncrease').value) || 10;
+            const maxDecrease = parseFloat(document.getElementById('maxDecrease').value) || 10;
+
+            if (!initialRate || !startValue) {
+                alert('請填入初始提領率和投資組合起始價值');
+                return;
+            }
+
+            gkSettings = {
+                initialWithdrawalRate: initialRate,
+                currentWithdrawalAmount: startValue * (initialRate / 100),
+                portfolioStartValue: startValue,
+                maxIncrease: maxIncrease,
+                maxDecrease: maxDecrease,
+                enabled: true
+            };
+
+            saveGKSettings();
+            updateGKDisplay();
+            alert('GK提領法已啟用！');
+        }
+
+        // 停用GK提領法
+        function disableGK() {
+            if (confirm('確定要停用GK提領法嗎？')) {
+                gkSettings.enabled = false;
+                saveGKSettings();
+                updateGKDisplay();
+            }
+        }
+
+        // 更新GK設定
+        function updateGKSettings() {
+            if (!gkSettings.enabled) {
+                alert('請先啟用GK提領法');
+                return;
+            }
+
+            const maxIncrease = parseFloat(document.getElementById('maxIncrease').value) || 10;
+            const maxDecrease = parseFloat(document.getElementById('maxDecrease').value) || 10;
+
+            gkSettings.maxIncrease = maxIncrease;
+            gkSettings.maxDecrease = maxDecrease;
+
+            saveGKSettings();
+            updateGKDisplay();
+            alert('GK設定已更新！');
+        }
+
+        // 更新GK顯示
+        function updateGKDisplay() {
+            // 載入設定值到輸入框
+            document.getElementById('initialRate').value = gkSettings.initialWithdrawalRate || 4.0;
+            document.getElementById('startValue').value = gkSettings.portfolioStartValue || 0;
+            document.getElementById('maxIncrease').value = gkSettings.maxIncrease || 10;
+            document.getElementById('maxDecrease').value = gkSettings.maxDecrease || 10;
+
+            // 更新狀態顯示
+            document.getElementById('gkEnabled').textContent = gkSettings.enabled ? '✅ 已啟用' : '❌ 未啟用';
+            document.getElementById('gkEnabled').className = `value ${gkSettings.enabled ? 'positive' : 'negative'}`;
+
+            if (gkSettings.enabled) {
+                const currentPortfolioValue = getCurrentPortfolioValue();
+                const suggestedWithdrawal = calculateGKWithdrawal(currentPortfolioValue);
+                const currentRate = currentPortfolioValue > 0 ? (suggestedWithdrawal / currentPortfolioValue * 100) : 0;
+                const rateDifference = currentRate - gkSettings.initialWithdrawalRate;
+
+                document.getElementById('suggestedWithdrawal').textContent = `$${suggestedWithdrawal.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+                document.getElementById('currentRate').textContent = `${currentRate.toFixed(2)}%`;
+                
+                const diffElement = document.getElementById('rateDifference');
+                diffElement.textContent = `${rateDifference >= 0 ? '+' : ''}${rateDifference.toFixed(2)}%`;
+                diffElement.className = `value ${rateDifference >= 0 ? 'positive' : 'negative'}`;
+            } else {
+                document.getElementById('suggestedWithdrawal').textContent = '$0';
+                document.getElementById('currentRate').textContent = '0%';
+                document.getElementById('rateDifference').textContent = '0%';
+            }
+        }
+
+        // 計算GK建議提領金額
+        function calculateGKWithdrawal(currentValue) {
+            if (!gkSettings.enabled || yearlyData.length === 0) {
+                return gkSettings.currentWithdrawalAmount || 0;
+            }
+
+            // 取得最近一年的資料
+            const lastYear = yearlyData[yearlyData.length - 1];
+            const returnRate = lastYear.returnRate;
+
+            let newWithdrawalAmount = gkSettings.currentWithdrawalAmount;
+
+            // GK規則：根據報酬率調整提領金額
+            if (returnRate > 0) {
+                // 正報酬：可以增加提領金額，但不超過最大增幅
+                const increaseRate = Math.min(returnRate, gkSettings.maxIncrease);
+                newWithdrawalAmount = gkSettings.currentWithdrawalAmount * (1 + increaseRate / 100);
+            } else {
+                // 負報酬：需要減少提領金額，但不超過最大減幅
+                const decreaseRate = Math.min(Math.abs(returnRate), gkSettings.maxDecrease);
+                newWithdrawalAmount = gkSettings.currentWithdrawalAmount * (1 - decreaseRate / 100);
+            }
+
+            // 更新當前提領金額
+            gkSettings.currentWithdrawalAmount = newWithdrawalAmount;
+            saveGKSettings();
+
+            return newWithdrawalAmount;
+        }
+
+        // 取得目前投資組合價值
+        function getCurrentPortfolioValue() {
+            let totalValue = 0;
+            etfData.forEach(item => {
+                totalValue += item.currentPrice * item.shares;
+            });
+            return totalValue;
+        }
+
+        // 新增年度記錄
+        function addYearlyRecord() {
+            const year = parseInt(document.getElementById('recordYear').value);
+            const returnRate = parseFloat(document.getElementById('yearReturn').value);
+            const startValue = parseFloat(document.getElementById('yearStartValue').value);
+            const endValue = parseFloat(document.getElementById('yearEndValue').value);
+            const withdrawal = parseFloat(document.getElementById('yearWithdrawal').value) || 0;
+
+            if (!year || isNaN(returnRate) || !startValue || !endValue) {
+                alert('請填入完整的年度資料');
+                return;
+            }
+
+            // 檢查是否已存在該年度記錄
+            const existingIndex = yearlyData.findIndex(item => item.year === year);
+            
+            const newRecord = {
+                year: year,
+                startValue: startValue,
+                endValue: endValue,
+                returnRate: returnRate,
+                actualWithdrawal: withdrawal,
+                suggestedWithdrawal: gkSettings.enabled ? calculateGKWithdrawalForYear(startValue, returnRate) : 0,
+                withdrawalRate: startValue > 0 ? (withdrawal / startValue * 100) : 0
+            };
+
+            if (existingIndex !== -1) {
+                if (confirm('該年度記錄已存在，是否要更新？')) {
+                    yearlyData[existingIndex] = newRecord;
+                }
+            } else {
+                yearlyData.push(newRecord);
+                yearlyData.sort((a, b) => a.year - b.year);
+            }
+
+            // 清空輸入框
+            document.getElementById('recordYear').value = '';
+            document.getElementById('yearReturn').value = '';
+            document.getElementById('yearStartValue').value = '';
+            document.getElementById('yearEndValue').value = '';
+            document.getElementById('yearWithdrawal').value = '';
+
+            saveYearlyData();
+            renderYearlyData();
+            updateGKDisplay();
+        }
+
+        // 計算特定年度的GK建議提領金額
+        function calculateGKWithdrawalForYear(startValue, returnRate) {
+            if (!gkSettings.enabled) return 0;
+
+            const baseWithdrawal = startValue * (gkSettings.initialWithdrawalRate / 100);
+            
+            if (returnRate > 0) {
+                const increaseRate = Math.min(returnRate, gkSettings.maxIncrease);
+                return baseWithdrawal * (1 + increaseRate / 100);
+            } else {
+                const decreaseRate = Math.min(Math.abs(returnRate), gkSettings.maxDecrease);
+                return baseWithdrawal * (1 - decreaseRate / 100);
+            }
+        }
+
+        // 自動計算本年度資料
+        function autoCalculateCurrentYear() {
+            const currentYear = new Date().getFullYear();
+            const currentValue = getCurrentPortfolioValue();
+            
+            if (currentValue === 0) {
+                alert('請先新增ETF並更新股價');
+                return;
+            }
+
+            // 尋找去年的記錄作為本年年初值
+            const lastYearRecord = yearlyData.find(record => record.year === currentYear - 1);
+            const startValue = lastYearRecord ? lastYearRecord.endValue : currentValue;
+            
+            const returnRate = startValue > 0 ? ((currentValue - startValue) / startValue * 100) : 0;
+
+            document.getElementById('recordYear').value = currentYear;
+            document.getElementById('yearReturn').value = returnRate.toFixed(2);
+            document.getElementById('yearStartValue').value = startValue.toFixed(0);
+            document.getElementById('yearEndValue').value = currentValue.toFixed(0);
+
+            alert(`已自動計算${currentYear}年資料，請確認後新增記錄`);
+        }
+
+        // 渲染年度資料表格
+        function renderYearlyData() {
+            const tbody = document.getElementById('yearlyTableBody');
+            tbody.innerHTML = '';
+
+            yearlyData.forEach((record, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;"><strong>${record.year}</strong></td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right;">$${record.startValue.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right;">$${record.endValue.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;" class="${record.returnRate >= 0 ? 'positive' : 'negative'}">${record.returnRate.toFixed(2)}%</td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right;">$${record.actualWithdrawal.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right;">$${record.suggestedWithdrawal.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">${record.withdrawalRate.toFixed(2)}%</td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">
+                        <button class="btn btn-danger" onclick="removeYearlyRecord(${index})" style="padding: 3px 8px; font-size: 12px;">刪除</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 刪除年度記錄
+        function removeYearlyRecord(index) {
+            if (confirm('確定要刪除這筆年度記錄嗎？')) {
+                yearlyData.splice(index, 1);
+                saveYearlyData();
+                renderYearlyData();
+                updateGKDisplay();
+            }
+        }
+
+        // 儲存GK設定
+        function saveGKSettings() {
+            localStorage.setItem('gkSettings', JSON.stringify(gkSettings));
+        }
+
+        // 儲存年度資料
+        function saveYearlyData() {
+            localStorage.setItem('yearlyData', JSON.stringify(yearlyData));
+        }
+
+
+
+        // ==================== 匯率相關函數 ====================
+
+        // 更新匯率顯示
+        function updateExchangeRateDisplay() {
+            document.getElementById('usdRate').value = exchangeRate.usdToTwd;
+            const updateText = exchangeRate.lastUpdate ? 
+                `(更新: ${new Date(exchangeRate.lastUpdate).toLocaleString('zh-TW')})` : 
+                '(手動設定)';
+            document.getElementById('rateUpdate').textContent = updateText;
+        }
+
+        // 手動更新匯率
+        function updateManualExchangeRate() {
+            const newRate = parseFloat(document.getElementById('usdRate').value);
+            if (newRate && newRate > 0) {
+                exchangeRate.usdToTwd = newRate;
+                exchangeRate.lastUpdate = new Date().toISOString();
+                saveExchangeRate();
+                
+                // 重新計算所有美股價格和成本
+                etfData.forEach((item, index) => {
+                    if (item.currency === 'USD') {
+                        // 重新計算價格
+                        if (item.originalPrice) {
+                            item.currentPrice = Math.round(item.originalPrice * exchangeRate.usdToTwd * 100) / 100;
+                        }
+                        // 重新計算成本
+                        if (item.originalCost) {
+                            item.cost = Math.round(item.originalCost * exchangeRate.usdToTwd * 100) / 100;
+                        }
+                    }
+                });
+                
+                saveData();
+                renderTable();
+                updateSummary();
+                updateExchangeRateDisplay();
+            }
+        }
+
+        // 自動更新匯率 (使用API)
+        async function updateExchangeRate() {
+            try {
+                showLoading(true);
+                
+                // 使用多個匯率API作為備用
+                let rate = null;
+                
+                // 嘗試第一個API
+                try {
+                    const response1 = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+                    const data1 = await response1.json();
+                    if (data1.rates && data1.rates.TWD) {
+                        rate = data1.rates.TWD;
+                    }
+                } catch (error) {
+                    console.warn('第一個匯率API失敗:', error);
+                }
+                
+                // 如果第一個失敗，嘗試第二個API
+                if (!rate) {
+                    try {
+                        const response2 = await fetch('https://api.fxratesapi.com/latest?base=USD&symbols=TWD');
+                        const data2 = await response2.json();
+                        if (data2.rates && data2.rates.TWD) {
+                            rate = data2.rates.TWD;
+                        }
+                    } catch (error) {
+                        console.warn('第二個匯率API失敗:', error);
+                    }
+                }
+                
+                if (rate && rate > 0) {
+                    exchangeRate.usdToTwd = Math.round(rate * 100) / 100;
+                    exchangeRate.lastUpdate = new Date().toISOString();
+                    saveExchangeRate();
+                    
+                    // 重新計算所有美股價格和成本
+                    etfData.forEach((item, index) => {
+                        if (item.currency === 'USD') {
+                            // 重新計算價格
+                            if (item.originalPrice) {
+                                item.currentPrice = Math.round(item.originalPrice * exchangeRate.usdToTwd * 100) / 100;
+                            }
+                            // 重新計算成本
+                            if (item.originalCost) {
+                                item.cost = Math.round(item.originalCost * exchangeRate.usdToTwd * 100) / 100;
+                            }
+                        }
+                    });
+                    
+                    saveData();
+                    renderTable();
+                    updateSummary();
+                    updateExchangeRateDisplay();
+                    
+                    alert(`匯率更新成功！USD/TWD = ${exchangeRate.usdToTwd}`);
+                } else {
+                    throw new Error('無法取得匯率資料');
+                }
+                
+            } catch (error) {
+                showError('匯率更新失敗: ' + error.message + '，請手動輸入匯率');
+                console.error('匯率更新錯誤:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 儲存匯率資料
+        function saveExchangeRate() {
+            localStorage.setItem('exchangeRate', JSON.stringify(exchangeRate));
+        }
+
+        // 更新匯出功能以包含匯率資料
+        function exportData() {
+            if (etfData.length === 0 && yearlyData.length === 0) {
+                alert('沒有資料可以匯出');
+                return;
+            }
+
+            const exportData = {
+                etfData: etfData,
+                yearlyData: yearlyData,
+                gkSettings: gkSettings,
+                exchangeRate: exchangeRate,
+                exportDate: new Date().toISOString()
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `etf_gk_data_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+        }
+
+        // 更新匯入功能以包含匯率資料
+        function importData() {
+            const file = document.getElementById('importFile').files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (importedData.etfData && Array.isArray(importedData.etfData)) {
+                        etfData = importedData.etfData;
+                    }
+                    
+                    if (importedData.yearlyData && Array.isArray(importedData.yearlyData)) {
+                        yearlyData = importedData.yearlyData;
+                    }
+                    
+                    if (importedData.gkSettings) {
+                        gkSettings = importedData.gkSettings;
+                    }
+                    
+                    if (importedData.exchangeRate) {
+                        exchangeRate = importedData.exchangeRate;
+                    }
+
+                    saveData();
+                    saveYearlyData();
+                    saveGKSettings();
+                    saveExchangeRate();
+                    
+                    renderTable();
+                    updateSummary();
+                    renderYearlyData();
+                    updateGKDisplay();
+                    updateExchangeRateDisplay();
+                    
+                    alert('資料匯入成功！');
+                } catch (error) {
+                    alert('檔案讀取失敗: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 鍵盤快捷鍵
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                addETF();
+            }
+        });
+    </script>
+</body>
+</html>
