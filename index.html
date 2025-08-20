@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ETF股價追蹤表格</title>
+    <!-- Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         * {
             margin: 0;
@@ -233,6 +235,9 @@
         <div class="header">
             <h1>📈 ETF股價追蹤表格</h1>
             <p>追蹤您的ETF投資組合，包含成本、股息、總資產等資訊</p>
+            <div id="loginStatus" style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; font-size: 14px;">
+                <span style="color: orange;">載入中...</span>
+            </div>
         </div>
 
         <div class="controls">
@@ -446,6 +451,39 @@
     </div>
 
     <script>
+        // ==================== Supabase 設定 ====================
+        const SUPABASE_URL = 'https://nowllpnpkildcbgjrivz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vd2xscG5wa2lsZGNiZ2pyaXZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4OTczMzksImV4cCI6MjA3MDQ3MzMzOX0.pVt0-WPq20WIJS4h9gPKFDYPBZU0FAdncHbmv-h7qjI';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                redirectTo: 'https://demo.wscc1031.synology.me/etf-tracker/'
+            }
+        });
+
+        // 用戶狀態
+        let currentUser = null;
+        let isOnline = navigator.onLine;
+        let syncInProgress = false;
+        let autoSyncEnabled = true;
+        let lastSyncTime = 0;
+        let syncQueue = false;
+
+        // 監聽網路狀態
+        window.addEventListener('online', () => {
+            isOnline = true;
+            console.log('網路已連線，準備同步資料');
+            if (currentUser) {
+                syncAllDataToCloud();
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            console.log('網路已斷線，使用本地資料');
+        });
+
+        // ==================== 本地資料 ====================
         let etfData = JSON.parse(localStorage.getItem('etfData')) || [];
         let yearlyData = JSON.parse(localStorage.getItem('yearlyData')) || [];
         let gkSettings = JSON.parse(localStorage.getItem('gkSettings')) || {
@@ -462,12 +500,32 @@
         };
 
         // 初始化
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 載入自動同步設定
+            const savedAutoSync = localStorage.getItem('autoSyncEnabled');
+            if (savedAutoSync !== null) {
+                autoSyncEnabled = JSON.parse(savedAutoSync);
+            }
+
+            // 修復現有資料的缺失欄位
+            fixExistingData();
+
+            // 檢查用戶登入狀態
+            await checkUserSession();
+
+            // 如果有用戶登入且網路連線，從雲端載入資料
+            if (currentUser && isOnline) {
+                await loadDataFromCloud();
+            }
+
             renderTable();
             updateSummary();
             renderYearlyData();
             updateGKDisplay();
             updateExchangeRateDisplay();
+
+            // 顯示登入狀態
+            updateLoginStatus();
         });
 
         // 新增ETF
@@ -503,6 +561,7 @@
             } else {
                 const newETF = {
                     symbol: symbol,
+                    name: symbol, // 暫時使用 symbol 作為 name，後續可以透過 API 獲取正確名稱
                     shares: shares,
                     cost: Math.round(costInTWD * 100) / 100,
                     originalCost: isUSStock ? originalCost : null,
@@ -596,7 +655,7 @@
                     
                     if (price && price > 0) {
                         etfData[index].currentPrice = price;
-                        etfData[index].lastUpdate = new Date().toLocaleString('zh-TW');
+                        etfData[index].lastUpdate = getCurrentTimeString();
                         etfData[index].priceChange = stock.z ? parseFloat(stock.z) - parseFloat(stock.y) : 0;
                         etfData[index].priceChangePercent = stock.z ? ((parseFloat(stock.z) - parseFloat(stock.y)) / parseFloat(stock.y) * 100) : 0;
                         // 清除失敗標記
@@ -632,7 +691,7 @@
 
                     if (price && price > 0) {
                         etfData[index].currentPrice = Math.round(price * 100) / 100;
-                        etfData[index].lastUpdate = new Date().toLocaleString('zh-TW');
+                        etfData[index].lastUpdate = getCurrentTimeString();
                         // 清除失敗標記
                         delete etfData[index].priceUpdateFailed;
                     } else {
@@ -645,7 +704,7 @@
                 // 所有API都失敗，標記為失敗狀態
                 console.warn('所有API都失敗，維持原本價格:', error);
                 etfData[index].priceUpdateFailed = true;
-                etfData[index].lastUpdate = new Date().toLocaleString('zh-TW') + ' (更新失敗)';
+                etfData[index].lastUpdate = getCurrentTimeString() + ' (更新失敗)';
             }
         }
 
@@ -674,7 +733,7 @@
                         etfData[index].currentPrice = Math.round(twdPrice * 100) / 100;
                         etfData[index].originalPrice = usdPrice; // 保存原始美元價格
                         etfData[index].currency = currency;
-                        etfData[index].lastUpdate = new Date().toLocaleString('zh-TW');
+                        etfData[index].lastUpdate = getCurrentTimeString();
                         // 清除失敗標記
                         delete etfData[index].priceUpdateFailed;
                     } else {
@@ -686,7 +745,7 @@
             } catch (error) {
                 console.warn('國際股價API失敗，維持原本價格:', error);
                 etfData[index].priceUpdateFailed = true;
-                etfData[index].lastUpdate = new Date().toLocaleString('zh-TW') + ' (更新失敗)';
+                etfData[index].lastUpdate = getCurrentTimeString() + ' (更新失敗)';
             }
         }
 
@@ -957,7 +1016,7 @@
 
         // 儲存資料
         function saveData() {
-            localStorage.setItem('etfData', JSON.stringify(etfData));
+            saveToLocalStorage();
         }
 
         // 匯出資料
@@ -1364,12 +1423,12 @@
 
         // 儲存GK設定
         function saveGKSettings() {
-            localStorage.setItem('gkSettings', JSON.stringify(gkSettings));
+            saveToLocalStorage();
         }
 
         // 儲存年度資料
         function saveYearlyData() {
-            localStorage.setItem('yearlyData', JSON.stringify(yearlyData));
+            saveToLocalStorage();
         }
 
 
@@ -1485,7 +1544,7 @@
 
         // 儲存匯率資料
         function saveExchangeRate() {
-            localStorage.setItem('exchangeRate', JSON.stringify(exchangeRate));
+            saveToLocalStorage();
         }
 
         // 更新匯出功能以包含匯率資料
@@ -1566,6 +1625,513 @@
                 addETF();
             }
         });
+
+        // ==================== Supabase 認證與同步功能 ====================
+
+        // 時間格式轉換函數
+        function convertToISOString(dateString) {
+            if (!dateString) return null;
+
+            try {
+                // 如果已經是 ISO 格式，直接返回
+                if (dateString.includes('T') && dateString.includes('Z')) {
+                    return dateString;
+                }
+
+                // 處理中文時間格式 "2025/8/11 上午10:50:05"
+                if (dateString.includes('上午') || dateString.includes('下午')) {
+                    // 替換中文時間標記
+                    let cleanDate = dateString.replace('上午', 'AM').replace('下午', 'PM');
+
+                    // 轉換為標準格式
+                    const date = new Date(cleanDate);
+                    if (!isNaN(date.getTime())) {
+                        return date.toISOString();
+                    }
+                }
+
+                // 嘗試直接解析
+                const date = new Date(dateString);
+                if (!isNaN(date.getTime())) {
+                    return date.toISOString();
+                }
+
+                // 如果都失敗，返回當前時間
+                return new Date().toISOString();
+            } catch (error) {
+                console.warn('時間格式轉換失敗:', dateString, error);
+                return new Date().toISOString();
+            }
+        }
+
+        // 從 ISO 格式轉換回中文時間格式
+        function convertFromISOString(isoString) {
+            if (!isoString) return null;
+
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleString('zh-TW');
+            } catch (error) {
+                console.warn('ISO 時間格式轉換失敗:', isoString, error);
+                return isoString;
+            }
+        }
+
+        // 獲取當前時間的中文格式（用於顯示）
+        function getCurrentTimeString() {
+            return new Date().toLocaleString('zh-TW');
+        }
+
+        // 修復現有資料的缺失欄位
+        function fixExistingData() {
+            let dataFixed = false;
+
+            etfData.forEach(item => {
+                if (!item.name) {
+                    item.name = item.symbol || 'Unknown';
+                    dataFixed = true;
+                }
+                if (item.shares === undefined || item.shares === null) {
+                    item.shares = 0;
+                    dataFixed = true;
+                }
+                if (item.cost === undefined || item.cost === null) {
+                    item.cost = 0;
+                    dataFixed = true;
+                }
+                if (item.currentPrice === undefined || item.currentPrice === null) {
+                    item.currentPrice = 0;
+                    dataFixed = true;
+                }
+                if (item.dividend === undefined || item.dividend === null) {
+                    item.dividend = 0;
+                    dataFixed = true;
+                }
+            });
+
+            if (dataFixed) {
+                console.log('已修復現有資料的缺失欄位');
+                localStorage.setItem('etfData', JSON.stringify(etfData));
+            }
+        }
+
+        // 檢查用戶登入狀態
+        async function checkUserSession() {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    currentUser = session.user;
+                    console.log('用戶已登入:', currentUser.email);
+                }
+            } catch (error) {
+                console.error('檢查登入狀態失敗:', error);
+            }
+        }
+
+        // 用戶登入
+        async function loginUser() {
+            const email = prompt('請輸入您的 Email：');
+            if (!email) return;
+
+            try {
+                const { error } = await supabase.auth.signInWithOtp({
+                    email: email,
+                    options: {
+                        shouldCreateUser: true,
+                        emailRedirectTo: 'https://demo.wscc1031.synology.me/etf-tracker/'
+                    }
+                });
+
+                if (error) throw error;
+
+                alert('已發送登入連結到您的 Email，請檢查信箱並點擊連結完成登入。');
+            } catch (error) {
+                alert('登入失敗: ' + error.message);
+            }
+        }
+
+        // 用戶登出
+        async function logoutUser() {
+            try {
+                const { error } = await supabase.auth.signOut();
+                if (error) throw error;
+
+                currentUser = null;
+                updateLoginStatus();
+                alert('已成功登出');
+            } catch (error) {
+                alert('登出失敗: ' + error.message);
+            }
+        }
+
+        // 更新登入狀態顯示
+        function updateLoginStatus() {
+            const statusElement = document.getElementById('loginStatus');
+            if (statusElement) {
+                if (currentUser) {
+                    const autoSyncText = autoSyncEnabled ? '自動同步: 開啟' : '自動同步: 關閉';
+                    const autoSyncColor = autoSyncEnabled ? 'green' : 'orange';
+
+                    statusElement.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span style="color: green;">✓ 已登入: ${currentUser.email}</span>
+                            <span style="color: ${autoSyncColor}; font-size: 12px;">${autoSyncText}</span>
+                            <button onclick="toggleAutoSync()" style="font-size: 12px;">${autoSyncEnabled ? '關閉' : '開啟'}自動同步</button>
+                            <button onclick="syncAllDataToCloud(true)" style="font-size: 12px;">手動同步</button>
+                            <button onclick="logoutUser()" style="font-size: 12px;">登出</button>
+                            <span id="syncStatus" style="color: #666; font-size: 11px;"></span>
+                        </div>
+                    `;
+                } else {
+                    statusElement.innerHTML = `
+                        <span style="color: orange;">未登入 (僅本地儲存)</span>
+                        <button onclick="loginUser()" style="margin-left: 10px;">登入</button>
+                    `;
+                }
+            }
+        }
+
+        // 切換自動同步
+        function toggleAutoSync() {
+            autoSyncEnabled = !autoSyncEnabled;
+            localStorage.setItem('autoSyncEnabled', JSON.stringify(autoSyncEnabled));
+            updateLoginStatus();
+
+            if (autoSyncEnabled) {
+                console.log('自動同步已開啟');
+            } else {
+                console.log('自動同步已關閉');
+                // 清除待執行的同步
+                if (syncTimeout) {
+                    clearTimeout(syncTimeout);
+                    syncTimeout = null;
+                }
+            }
+        }
+
+        // 監聽認證狀態變化
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'SIGNED_IN') {
+                currentUser = session.user;
+                console.log('用戶登入成功:', currentUser.email);
+                updateLoginStatus();
+                // 登入後自動同步資料
+                if (isOnline) {
+                    loadDataFromCloud();
+                }
+            } else if (event === 'SIGNED_OUT') {
+                currentUser = null;
+                updateLoginStatus();
+            }
+        });
+
+        // 從雲端載入資料
+        async function loadDataFromCloud() {
+            if (!currentUser || !isOnline || syncInProgress) return;
+
+            syncInProgress = true;
+            try {
+                console.log('開始從雲端載入資料...');
+
+                // 載入 ETF 資料
+                const { data: etfCloudData, error: etfError } = await supabase
+                    .from('etf_data')
+                    .select('*')
+                    .eq('user_id', currentUser.id);
+
+                if (etfError) throw etfError;
+
+                // 載入年度資料
+                const { data: yearlyCloudData, error: yearlyError } = await supabase
+                    .from('yearly_data')
+                    .select('*')
+                    .eq('user_id', currentUser.id);
+
+                if (yearlyError) throw yearlyError;
+
+                // 載入 GK 設定
+                const { data: gkCloudData, error: gkError } = await supabase
+                    .from('gk_settings')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .single();
+
+                // GK 設定可能不存在，所以不拋出錯誤
+
+                // 載入匯率資料
+                const { data: exchangeCloudData, error: exchangeError } = await supabase
+                    .from('exchange_rates')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                // 更新本地資料
+                if (etfCloudData && etfCloudData.length > 0) {
+                    etfData = etfCloudData.map(item => ({
+                        symbol: item.symbol || '',
+                        name: item.name || item.symbol || 'Unknown',
+                        shares: parseFloat(item.shares) || 0,
+                        cost: parseFloat(item.cost) || 0,
+                        currentPrice: parseFloat(item.current_price) || 0,
+                        dividend: parseFloat(item.dividend) || 0,
+                        lastUpdate: convertFromISOString(item.last_update),
+                        originalPrice: parseFloat(item.original_price) || null,
+                        currency: item.currency || 'TWD',
+                        priceChange: parseFloat(item.price_change) || 0,
+                        priceChangePercent: parseFloat(item.price_change_percent) || 0
+                    }));
+                    localStorage.setItem('etfData', JSON.stringify(etfData));
+                }
+
+                if (yearlyCloudData && yearlyCloudData.length > 0) {
+                    yearlyData = yearlyCloudData.map(item => ({
+                        year: item.year,
+                        ...item.data
+                    }));
+                    localStorage.setItem('yearlyData', JSON.stringify(yearlyData));
+                }
+
+                if (gkCloudData && !gkError) {
+                    gkSettings = {
+                        initialWithdrawalRate: parseFloat(gkCloudData.initial_rate) || 4.0,
+                        currentWithdrawalAmount: parseFloat(gkCloudData.total_withdrawn) || 0,
+                        portfolioStartValue: parseFloat(gkCloudData.start_value) || 0,
+                        enabled: gkCloudData.is_enabled || false,
+                        ...gkCloudData.settings
+                    };
+                    localStorage.setItem('gkSettings', JSON.stringify(gkSettings));
+                }
+
+                if (exchangeCloudData && !exchangeError) {
+                    exchangeRate = {
+                        usdToTwd: parseFloat(exchangeCloudData.usd_to_twd) || 31.5,
+                        lastUpdate: convertFromISOString(exchangeCloudData.last_update)
+                    };
+                    localStorage.setItem('exchangeRate', JSON.stringify(exchangeRate));
+                }
+
+                console.log('雲端資料載入完成');
+
+                // 重新渲染頁面
+                renderTable();
+                updateSummary();
+                renderYearlyData();
+                updateGKDisplay();
+                updateExchangeRateDisplay();
+
+            } catch (error) {
+                console.error('載入雲端資料失敗:', error);
+            } finally {
+                syncInProgress = false;
+            }
+        }
+
+        // 同步所有資料到雲端
+        async function syncAllDataToCloud(showAlert = false) {
+            if (!currentUser || !isOnline || syncInProgress) return;
+
+            syncInProgress = true;
+            try {
+                console.log('開始同步資料到雲端...');
+
+                // 同步 ETF 資料
+                await syncETFDataToCloud();
+
+                // 同步年度資料
+                await syncYearlyDataToCloud();
+
+                // 同步 GK 設定
+                await syncGKSettingsToCloud();
+
+                // 同步匯率資料
+                await syncExchangeRateToCloud();
+
+                lastSyncTime = Date.now();
+                console.log('所有資料同步完成');
+
+                // 只有手動同步時才顯示成功訊息
+                if (showAlert) {
+                    alert('資料同步成功！');
+                }
+
+                // 更新同步狀態顯示
+                updateSyncStatus('已同步');
+
+            } catch (error) {
+                console.error('同步資料失敗:', error);
+                updateSyncStatus('同步失敗');
+
+                // 錯誤訊息總是顯示
+                alert('同步失敗: ' + error.message);
+            } finally {
+                syncInProgress = false;
+                syncQueue = false;
+            }
+        }
+
+        // 同步 ETF 資料到雲端
+        async function syncETFDataToCloud() {
+            if (!currentUser) return;
+
+            // 先刪除現有資料
+            await supabase
+                .from('etf_data')
+                .delete()
+                .eq('user_id', currentUser.id);
+
+            // 插入新資料
+            if (etfData.length > 0) {
+                const cloudData = etfData.map(item => ({
+                    user_id: currentUser.id,
+                    symbol: item.symbol || '',
+                    name: item.name || item.symbol || 'Unknown',
+                    shares: item.shares || 0,
+                    cost: item.cost || 0,
+                    current_price: item.currentPrice || 0,
+                    dividend: item.dividend || 0,
+                    last_update: convertToISOString(item.lastUpdate),
+                    original_price: item.originalPrice,
+                    currency: item.currency || 'TWD',
+                    price_change: item.priceChange || 0,
+                    price_change_percent: item.priceChangePercent || 0
+                }));
+
+                const { error } = await supabase
+                    .from('etf_data')
+                    .insert(cloudData);
+
+                if (error) throw error;
+            }
+        }
+
+        // 同步年度資料到雲端
+        async function syncYearlyDataToCloud() {
+            if (!currentUser) return;
+
+            // 先刪除現有資料
+            await supabase
+                .from('yearly_data')
+                .delete()
+                .eq('user_id', currentUser.id);
+
+            // 插入新資料
+            if (yearlyData.length > 0) {
+                const cloudData = yearlyData.map(item => ({
+                    user_id: currentUser.id,
+                    year: item.year,
+                    data: {
+                        totalValue: item.totalValue,
+                        totalCost: item.totalCost,
+                        totalDividend: item.totalDividend,
+                        totalPnL: item.totalPnL,
+                        returnRate: item.returnRate,
+                        gkWithdrawal: item.gkWithdrawal || 0
+                    }
+                }));
+
+                const { error } = await supabase
+                    .from('yearly_data')
+                    .insert(cloudData);
+
+                if (error) throw error;
+            }
+        }
+
+        // 同步 GK 設定到雲端
+        async function syncGKSettingsToCloud() {
+            if (!currentUser) return;
+
+            // 先刪除現有設定
+            await supabase
+                .from('gk_settings')
+                .delete()
+                .eq('user_id', currentUser.id);
+
+            // 插入新設定
+            const cloudData = {
+                user_id: currentUser.id,
+                is_enabled: gkSettings.enabled || false,
+                initial_rate: gkSettings.initialWithdrawalRate || 4.0,
+                start_value: gkSettings.portfolioStartValue || 0,
+                current_rate: gkSettings.initialWithdrawalRate || 4.0,
+                total_withdrawn: gkSettings.currentWithdrawalAmount || 0,
+                settings: {
+                    maxIncrease: gkSettings.maxIncrease || 10,
+                    maxDecrease: gkSettings.maxDecrease || 10
+                }
+            };
+
+            const { error } = await supabase
+                .from('gk_settings')
+                .insert([cloudData]);
+
+            if (error) throw error;
+        }
+
+        // 同步匯率資料到雲端
+        async function syncExchangeRateToCloud() {
+            if (!currentUser) return;
+
+            // 匯率資料是全域的，直接更新最新記錄
+            const { error } = await supabase
+                .from('exchange_rates')
+                .insert({
+                    usd_to_twd: exchangeRate.usdToTwd || 31.5,
+                    last_update: convertToISOString(exchangeRate.lastUpdate) || new Date().toISOString()
+                });
+
+            if (error) throw error;
+        }
+
+        // 防抖同步函數
+        let syncTimeout = null;
+        function debouncedSync() {
+            if (!currentUser || !isOnline || !autoSyncEnabled) return;
+
+            // 清除之前的計時器
+            if (syncTimeout) {
+                clearTimeout(syncTimeout);
+            }
+
+            // 設定新的計時器，2秒後執行同步
+            syncTimeout = setTimeout(() => {
+                if (!syncInProgress) {
+                    syncQueue = true;
+                    updateSyncStatus('同步中...');
+                    syncAllDataToCloud(false); // 自動同步不顯示成功訊息
+                }
+            }, 2000);
+
+            updateSyncStatus('等待同步...');
+        }
+
+        // 更新同步狀態顯示
+        function updateSyncStatus(status) {
+            const statusElement = document.getElementById('syncStatus');
+            if (statusElement) {
+                const now = new Date().toLocaleTimeString('zh-TW');
+                statusElement.textContent = `${status} (${now})`;
+
+                // 3秒後清除狀態
+                setTimeout(() => {
+                    if (statusElement.textContent.includes(status)) {
+                        statusElement.textContent = '';
+                    }
+                }, 3000);
+            }
+        }
+
+        // 修改原有的儲存函數，加入防抖同步
+        function saveToLocalStorage() {
+            localStorage.setItem('etfData', JSON.stringify(etfData));
+            localStorage.setItem('yearlyData', JSON.stringify(yearlyData));
+            localStorage.setItem('gkSettings', JSON.stringify(gkSettings));
+            localStorage.setItem('exchangeRate', JSON.stringify(exchangeRate));
+
+            // 使用防抖同步
+            debouncedSync();
+        }
     </script>
 </body>
 </html>
