@@ -384,6 +384,10 @@
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">最大減幅 (%):</label>
                         <input type="number" id="maxDecrease" step="1" min="0" max="50" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                     </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">前一年通膨率 (%):</label>
+                        <input type="number" id="inflationRate" step="0.1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
                 </div>
                 <div style="text-align: center;">
                     <button class="btn btn-success" onclick="enableGK()">啟用GK提領法</button>
@@ -424,6 +428,7 @@
                     <input type="number" id="yearStartValue" placeholder="年初資產" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                     <input type="number" id="yearEndValue" placeholder="年末資產" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                     <input type="number" id="yearWithdrawal" placeholder="實際提領" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="number" id="yearInflation" placeholder="通膨率 (%)" step="0.01" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                     <button class="btn btn-success" onclick="addYearlyRecord()">新增記錄</button>
                     <button class="btn" onclick="autoCalculateCurrentYear()">自動計算本年</button>
                 </div>
@@ -436,9 +441,11 @@
                                 <th style="padding: 10px; border: 1px solid #dee2e6;">年初資產</th>
                                 <th style="padding: 10px; border: 1px solid #dee2e6;">年末資產</th>
                                 <th style="padding: 10px; border: 1px solid #dee2e6;">報酬率</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">通膨率</th>
                                 <th style="padding: 10px; border: 1px solid #dee2e6;">實際提領</th>
                                 <th style="padding: 10px; border: 1px solid #dee2e6;">建議提領</th>
                                 <th style="padding: 10px; border: 1px solid #dee2e6;">提領率</th>
+                                <th style="padding: 10px; border: 1px solid #dee2e6;">觸發規則</th>
                                 <th style="padding: 10px; border: 1px solid #dee2e6;">操作</th>
                             </tr>
                         </thead>
@@ -668,7 +675,7 @@
                 }
             } catch (error) {
                 // 如果API失敗，嘗試備用方案
-                console.warn('主要API失敗，嘗試備用方案:', error);
+                console.warn('主要API失敗:', error);
                 await fetchTaiwanPriceBackup(symbol, index);
             }
         }
@@ -702,7 +709,7 @@
                 }
             } catch (error) {
                 // 所有API都失敗，標記為失敗狀態
-                console.warn('所有API都失敗，維持原本價格:', error);
+                console.warn('所有API都失敗:', error);
                 etfData[index].priceUpdateFailed = true;
                 etfData[index].lastUpdate = getCurrentTimeString() + ' (更新失敗)';
             }
@@ -1008,7 +1015,6 @@
             adviceHTML += '<p style="font-size: 13px; color: #666;">• 單一標的建議不超過30%</p>';
             adviceHTML += '<p style="font-size: 13px; color: #666;">• 前五大標的建議不超過80%</p>';
             adviceHTML += '<p style="font-size: 13px; color: #666;">• 考慮地區分散：台股50-70%，國際30-50%</p>';
-            adviceHTML += '<p style="font-size: 13px; color: #666;">• 定期檢視並再平衡配置</p>';
             adviceHTML += '</div>';
 
             allocationAdvice.innerHTML = adviceHTML;
@@ -1185,6 +1191,7 @@
             const startValue = parseFloat(document.getElementById('startValue').value);
             const maxIncrease = parseFloat(document.getElementById('maxIncrease').value) || 10;
             const maxDecrease = parseFloat(document.getElementById('maxDecrease').value) || 10;
+            const inflationRate = parseFloat(document.getElementById('inflationRate').value) || 0;
 
             if (!initialRate || !startValue) {
                 alert('請填入初始提領率和投資組合起始價值');
@@ -1197,6 +1204,7 @@
                 portfolioStartValue: startValue,
                 maxIncrease: maxIncrease,
                 maxDecrease: maxDecrease,
+                inflationRate: inflationRate,
                 enabled: true
             };
 
@@ -1235,10 +1243,11 @@
         // 更新GK顯示
         function updateGKDisplay() {
             // 載入設定值到輸入框
-            document.getElementById('initialRate').value = gkSettings.initialWithdrawalRate || 4.0;
+            document.getElementById('initialRate').value = gkSettings.initialWithdrawalRate || 6.0;
             document.getElementById('startValue').value = gkSettings.portfolioStartValue || 0;
             document.getElementById('maxIncrease').value = gkSettings.maxIncrease || 10;
             document.getElementById('maxDecrease').value = gkSettings.maxDecrease || 10;
+            document.getElementById('inflationRate').value = gkSettings.inflationRate || 0; // 新增通膨率顯示
 
             // 更新狀態顯示
             document.getElementById('gkEnabled').textContent = gkSettings.enabled ? '✅ 已啟用' : '❌ 未啟用';
@@ -1246,11 +1255,11 @@
 
             if (gkSettings.enabled) {
                 const currentPortfolioValue = getCurrentPortfolioValue();
-                const suggestedWithdrawal = calculateGKWithdrawal(currentPortfolioValue);
+                const { amount: suggestedWithdrawal } = calculateGKWithdrawal(currentPortfolioValue);
                 const currentRate = currentPortfolioValue > 0 ? (suggestedWithdrawal / currentPortfolioValue * 100) : 0;
                 const rateDifference = currentRate - gkSettings.initialWithdrawalRate;
 
-                document.getElementById('suggestedWithdrawal').textContent = `$${suggestedWithdrawal.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+                document.getElementById('suggestedWithdrawal').textContent = `${suggestedWithdrawal.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
                 document.getElementById('currentRate').textContent = `${currentRate.toFixed(2)}%`;
                 
                 const diffElement = document.getElementById('rateDifference');
@@ -1265,32 +1274,49 @@
 
         // 計算GK建議提領金額
         function calculateGKWithdrawal(currentValue) {
-            if (!gkSettings.enabled || yearlyData.length === 0) {
-                return gkSettings.currentWithdrawalAmount || 0;
+            if (!gkSettings.enabled) {
+                return { amount: 0, rule: '' };
+            }
+            if (yearlyData.length === 0) {
+                return { amount: gkSettings.currentWithdrawalAmount || 0, rule: '初始設定' };
             }
 
             // 取得最近一年的資料
             const lastYear = yearlyData[yearlyData.length - 1];
             const returnRate = lastYear.returnRate;
+            const inflationRate = lastYear.inflationRate || 0; // 取得通膨率
 
             let newWithdrawalAmount = gkSettings.currentWithdrawalAmount;
+            let triggeredRule = ''; // 記錄觸發的規則
 
-            // GK規則：根據報酬率調整提領金額
-            if (returnRate > 0) {
-                // 正報酬：可以增加提領金額，但不超過最大增幅
-                const increaseRate = Math.min(returnRate, gkSettings.maxIncrease);
-                newWithdrawalAmount = gkSettings.currentWithdrawalAmount * (1 + increaseRate / 100);
+            // 1. 通膨規則
+            if (returnRate >= 0) { // 正報酬年才進行通膨調整
+                const adjustedInflationRate = Math.min(inflationRate, 6); // 通膨調整上限6%
+                newWithdrawalAmount = newWithdrawalAmount * (1 + adjustedInflationRate / 100);
+                if (adjustedInflationRate > 0) {
+                    triggeredRule = '通膨';
+                }
             } else {
-                // 負報酬：需要減少提領金額，但不超過最大減幅
-                const decreaseRate = Math.min(Math.abs(returnRate), gkSettings.maxDecrease);
-                newWithdrawalAmount = gkSettings.currentWithdrawalAmount * (1 - decreaseRate / 100);
+                triggeredRule = '凍結'; // 負報酬年凍結通膨調整
+            }
+
+            // 2. 保本規則 & 3. 繁榮規則
+            const initialRate = gkSettings.initialWithdrawalRate / 100;
+            const currentWithdrawalRate = newWithdrawalAmount / gkSettings.portfolioStartValue; // 使用起始價值計算提領率
+
+            if (currentWithdrawalRate > initialRate * 1.2) { // 高出20%以上觸發保本
+                newWithdrawalAmount = newWithdrawalAmount * 0.9;
+                triggeredRule = '保本';
+            } else if (currentWithdrawalRate < initialRate * 0.8) { // 低於20%以上觸發繁榮
+                newWithdrawalAmount = newWithdrawalAmount * 1.1;
+                triggeredRule = '繁榮';
             }
 
             // 更新當前提領金額
             gkSettings.currentWithdrawalAmount = newWithdrawalAmount;
             saveGKSettings();
 
-            return newWithdrawalAmount;
+            return { amount: newWithdrawalAmount, rule: triggeredRule }; // 返回金額和觸發規則
         }
 
         // 取得目前投資組合價值
@@ -1309,6 +1335,7 @@
             const startValue = parseFloat(document.getElementById('yearStartValue').value);
             const endValue = parseFloat(document.getElementById('yearEndValue').value);
             const withdrawal = parseFloat(document.getElementById('yearWithdrawal').value) || 0;
+            const inflationRate = parseFloat(document.getElementById('yearInflation').value) || 0; // 取得通膨率
 
             if (!year || isNaN(returnRate) || !startValue || !endValue) {
                 alert('請填入完整的年度資料');
@@ -1318,14 +1345,18 @@
             // 檢查是否已存在該年度記錄
             const existingIndex = yearlyData.findIndex(item => item.year === year);
             
+            const { amount: suggestedWithdrawal, rule: triggeredRule } = calculateGKWithdrawalForYear(startValue, returnRate, inflationRate); // 傳入通膨率
+
             const newRecord = {
                 year: year,
                 startValue: startValue,
                 endValue: endValue,
                 returnRate: returnRate,
+                inflationRate: inflationRate, // 保存通膨率
                 actualWithdrawal: withdrawal,
-                suggestedWithdrawal: gkSettings.enabled ? calculateGKWithdrawalForYear(startValue, returnRate) : 0,
-                withdrawalRate: startValue > 0 ? (withdrawal / startValue * 100) : 0
+                suggestedWithdrawal: suggestedWithdrawal,
+                withdrawalRate: startValue > 0 ? (withdrawal / startValue * 100) : 0,
+                triggeredRule: triggeredRule // 保存觸發規則
             };
 
             if (existingIndex !== -1) {
@@ -1343,25 +1374,44 @@
             document.getElementById('yearStartValue').value = '';
             document.getElementById('yearEndValue').value = '';
             document.getElementById('yearWithdrawal').value = '';
+            document.getElementById('yearInflation').value = ''; // 清空通膨率
 
             saveYearlyData();
             renderYearlyData();
             updateGKDisplay();
         }
 
-        // 計算特定年度的GK建議提領金額
-        function calculateGKWithdrawalForYear(startValue, returnRate) {
-            if (!gkSettings.enabled) return 0;
+        // 計算特定年度的GK建議提領金額 (包含通膨、保本、繁榮規則)
+        function calculateGKWithdrawalForYear(startValue, returnRate, inflationRate) {
+            if (!gkSettings.enabled) return { amount: 0, rule: '' };
 
-            const baseWithdrawal = startValue * (gkSettings.initialWithdrawalRate / 100);
-            
-            if (returnRate > 0) {
-                const increaseRate = Math.min(returnRate, gkSettings.maxIncrease);
-                return baseWithdrawal * (1 + increaseRate / 100);
+            let baseWithdrawal = startValue * (gkSettings.initialWithdrawalRate / 100);
+            let triggeredRule = '';
+
+            // 1. 通膨規則
+            if (returnRate >= 0) { // 正報酬年才進行通膨調整
+                const adjustedInflationRate = Math.min(inflationRate, 6); // 通膨調整上限6%
+                baseWithdrawal = baseWithdrawal * (1 + adjustedInflationRate / 100);
+                if (adjustedInflationRate > 0) {
+                    triggeredRule = '通膨';
+                }
             } else {
-                const decreaseRate = Math.min(Math.abs(returnRate), gkSettings.maxDecrease);
-                return baseWithdrawal * (1 - decreaseRate / 100);
+                triggeredRule = '凍結'; // 負報酬年凍結通膨調整
             }
+
+            // 2. 保本規則 & 3. 繁榮規則
+            const initialRate = gkSettings.initialWithdrawalRate / 100;
+            const currentWithdrawalRate = baseWithdrawal / startValue; // 使用期初資產計算提領率
+
+            if (currentWithdrawalRate > initialRate * 1.2) { // 高出20%以上觸發保本
+                baseWithdrawal = baseWithdrawal * 0.9;
+                triggeredRule = '保本';
+            } else if (currentWithdrawalRate < initialRate * 0.8) { // 低於20%以上觸發繁榮
+                baseWithdrawal = baseWithdrawal * 1.1;
+                triggeredRule = '繁榮';
+            }
+
+            return { amount: baseWithdrawal, rule: triggeredRule };
         }
 
         // 自動計算本年度資料
@@ -1400,9 +1450,11 @@
                     <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right;">$${record.startValue.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
                     <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right;">$${record.endValue.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
                     <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;" class="${record.returnRate >= 0 ? 'positive' : 'negative'}">${record.returnRate.toFixed(2)}%</td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">${record.inflationRate.toFixed(2)}%</td>
                     <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right;">$${record.actualWithdrawal.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
                     <td style="padding: 8px; border: 1px solid #dee2e6; text-align: right;">$${record.suggestedWithdrawal.toLocaleString('zh-TW', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
                     <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">${record.withdrawalRate.toFixed(2)}%</td>
+                    <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">${record.triggeredRule || '--'}</td>
                     <td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">
                         <button class="btn btn-danger" onclick="removeYearlyRecord(${index})" style="padding: 3px 8px; font-size: 12px;">刪除</button>
                     </td>
