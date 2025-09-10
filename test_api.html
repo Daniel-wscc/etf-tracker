@@ -3,101 +3,727 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API測試頁面</title>
+    <title>股價API測試工具</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        .test-result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
-        .success { background-color: #d4edda; border-color: #c3e6cb; }
-        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            min-width: 80px;
+        }
+
+        .control-group input, .control-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .results {
+            padding: 20px;
+        }
+
+        .result-section {
+            margin-bottom: 30px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .result-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-content {
+            padding: 15px;
+            background: white;
+        }
+
+        .json-display {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: #155724;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .api-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .price-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .price-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .price-item:last-child {
+            border-bottom: none;
+        }
+
+        .price-label {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .price-value {
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        .positive {
+            color: #28a745;
+        }
+
+        .negative {
+            color: #dc3545;
+        }
+
+        @media (max-width: 768px) {
+            .control-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-group label {
+                min-width: auto;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>股價API測試</h1>
-    <button onclick="testTaiwanAPI()">測試台灣股價API (0050)</button>
-    <button onclick="testYahooAPI()">測試Yahoo Finance API (VTI)</button>
-    
-    <div id="results"></div>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 股價API測試工具</h1>
+            <p>測試台灣證交所和Yahoo Finance API，查看完整的回傳資料</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>股票代號:</label>
+                <input type="text" id="stockSymbol" placeholder="例如: 0050.TW, VTI, SPY" style="width: 200px;">
+                <button class="btn btn-success" onclick="testAPIs()">🔍 測試API</button>
+                <button class="btn" onclick="clearResults()">🗑️ 清除結果</button>
+            </div>
+            <div class="control-group">
+                <label>常見股票:</label>
+                <select id="popularStocks" onchange="fillPopularStock()" style="width: 200px;">
+                    <option value="">選擇股票</option>
+                    <option value="0050.TW">0050 元大台灣50</option>
+                    <option value="0056.TW">0056 元大高股息</option>
+                    <option value="00878.TW">00878 國泰永續高股息</option>
+                    <option value="00679B.TW">00679B 元大美債20年</option>
+                    <option value="00692.TW">00692 富邦公司治理</option>
+                    <option value="00881.TW">00881 國泰台灣5G+</option>
+                    <option value="VTI">VTI 美國整體股市</option>
+                    <option value="SPY">SPY 標普500</option>
+                    <option value="QQQ">QQQ 那斯達克100</option>
+                    <option value="AAPL">AAPL 蘋果</option>
+                    <option value="TSLA">TSLA 特斯拉</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="api-info">
+                <strong>📋 API說明：</strong><br>
+                • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+            </div>
+        </div>
+    </div>
 
     <script>
-        async function testTaiwanAPI() {
+        // 填入常見股票
+        function fillPopularStock() {
+            const select = document.getElementById('popularStocks');
+            const symbol = select.value;
+            if (symbol) {
+                document.getElementById('stockSymbol').value = symbol;
+                select.value = ''; // 重置選擇
+            }
+        }
+
+        // 清除結果
+        function clearResults() {
+            document.getElementById('results').innerHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+            `;
+        }
+
+        // 判斷是否為台灣股票
+        function isTaiwanStock(symbol) {
+            return symbol.toLowerCase().includes('.tw') || 
+                   /^\d{4}$/.test(symbol) || 
+                   /^\d{5}$/.test(symbol);
+        }
+
+        // 測試所有API
+        async function testAPIs() {
+            const symbol = document.getElementById('stockSymbol').value.trim();
+            if (!symbol) {
+                alert('請輸入股票代號');
+                return;
+            }
+
             const resultsDiv = document.getElementById('results');
-            const resultDiv = document.createElement('div');
-            resultDiv.className = 'test-result';
             
+            // 清除之前的結果，保留說明
+            resultsDiv.innerHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+                <div class="loading">正在測試API，請稍候...</div>
+            `;
+
             try {
-                const apiUrl = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch=tse_0050.tw';
+                if (isTaiwanStock(symbol)) {
+                    await testTaiwanAPI(symbol);
+                } else {
+                    await testInternationalAPI(symbol);
+                }
+            } catch (error) {
+                showError('測試失敗: ' + error.message);
+            }
+        }
+
+        // 測試台灣股票API
+        async function testTaiwanAPI(symbol) {
+            const resultsDiv = document.getElementById('results');
+            
+            // 處理股票代號格式
+            let stockCode = symbol.replace('.TW', '').replace('.tw', '');
+            
+            // 判斷交易所
+            let exchange = 'tse'; // 預設為上市
+            if (stockCode.startsWith('00') || parseInt(stockCode) >= 6000) {
+                exchange = 'otc'; // 上櫃
+            }
+            
+            const apiUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch=${exchange}_${stockCode}.tw`;
+            
+            // 顯示API資訊
+            resultsDiv.innerHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+                <div class="result-section">
+                    <div class="result-header">
+                        🇹🇼 台灣證交所API測試 - ${symbol}
+                        <span style="font-size: 12px; color: #666;">交易所: ${exchange.toUpperCase()}</span>
+                    </div>
+                    <div class="result-content">
+                        <div class="loading">正在獲取資料...</div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                // 使用代理服務來避免CORS問題
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`;
-                
-                resultDiv.innerHTML = '正在測試台灣證交所API...';
-                resultsDiv.appendChild(resultDiv);
-                
                 const response = await fetch(proxyUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 const stockData = JSON.parse(data.contents);
                 
-                if (stockData.msgArray && stockData.msgArray.length > 0) {
-                    const stock = stockData.msgArray[0];
-                    resultDiv.className = 'test-result success';
-                    resultDiv.innerHTML = `
-                        <h3>✅ 台灣證交所API測試成功</h3>
-                        <p>股票代號: ${stock.c}</p>
-                        <p>股票名稱: ${stock.n}</p>
-                        <p>目前價格: ${stock.z || stock.y}</p>
-                        <p>昨收價: ${stock.y}</p>
-                        <p>漲跌: ${stock.z ? (parseFloat(stock.z) - parseFloat(stock.y)).toFixed(2) : '0.00'}</p>
-                    `;
-                } else {
-                    throw new Error('無法取得股票資料');
-                }
+                // 顯示完整JSON資料
+                displayTaiwanResults(symbol, stockData, apiUrl);
+                
             } catch (error) {
-                resultDiv.className = 'test-result error';
-                resultDiv.innerHTML = `
-                    <h3>❌ 台灣證交所API測試失敗</h3>
-                    <p>錯誤訊息: ${error.message}</p>
-                `;
+                showTaiwanError(symbol, error, apiUrl);
             }
         }
 
-        async function testYahooAPI() {
+        // 顯示台灣股票結果
+        function displayTaiwanResults(symbol, stockData, apiUrl) {
             const resultsDiv = document.getElementById('results');
-            const resultDiv = document.createElement('div');
-            resultDiv.className = 'test-result';
             
+            let resultHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+                <div class="result-section">
+                    <div class="result-header">
+                        🇹🇼 台灣證交所API測試 - ${symbol}
+                        <span style="font-size: 12px; color: #666;">✅ 成功</span>
+                    </div>
+                    <div class="result-content">
+            `;
+
+            if (stockData.msgArray && stockData.msgArray.length > 0) {
+                const stock = stockData.msgArray[0];
+                const price = parseFloat(stock.z) || parseFloat(stock.y);
+                const change = stock.z ? parseFloat(stock.z) - parseFloat(stock.y) : 0;
+                const changePercent = stock.z ? ((parseFloat(stock.z) - parseFloat(stock.y)) / parseFloat(stock.y) * 100) : 0;
+
+                resultHTML += `
+                    <div class="success">✅ 成功獲取股價資料</div>
+                    <div class="price-display">
+                        <h4>📊 股價資訊</h4>
+                        <div class="price-item">
+                            <span class="price-label">股票代號:</span>
+                            <span class="price-value">${stock.c || symbol}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">股票名稱:</span>
+                            <span class="price-value">${stock.n || 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">目前價格:</span>
+                            <span class="price-value">$${price ? price.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">昨收價格:</span>
+                            <span class="price-value">$${stock.y ? parseFloat(stock.y).toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">漲跌金額:</span>
+                            <span class="price-value ${change >= 0 ? 'positive' : 'negative'}">${change >= 0 ? '+' : ''}$${change.toFixed(2)}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">漲跌幅:</span>
+                            <span class="price-value ${changePercent >= 0 ? 'positive' : 'negative'}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">成交量:</span>
+                            <span class="price-value">${stock.v ? parseInt(stock.v).toLocaleString() : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">成交金額:</span>
+                            <span class="price-value">${stock.a ? parseInt(stock.a).toLocaleString() : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">開盤價:</span>
+                            <span class="price-value">$${stock.o ? parseFloat(stock.o).toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">最高價:</span>
+                            <span class="price-value">$${stock.h ? parseFloat(stock.h).toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">最低價:</span>
+                            <span class="price-value">$${stock.l ? parseFloat(stock.l).toFixed(2) : 'N/A'}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultHTML += `
+                    <div class="error">❌ 找不到股票資料，請檢查股票代號</div>
+                `;
+            }
+
+            resultHTML += `
+                    <h4>🔗 API URL</h4>
+                    <div class="json-display">${apiUrl}</div>
+                    
+                    <h4>📄 完整JSON回應</h4>
+                    <div class="json-display">${JSON.stringify(stockData, null, 2)}</div>
+                </div>
+            </div>
+            `;
+
+            resultsDiv.innerHTML = resultHTML;
+        }
+
+        // 顯示台灣股票錯誤
+        function showTaiwanError(symbol, error, apiUrl) {
+            const resultsDiv = document.getElementById('results');
+            
+            resultsDiv.innerHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+                <div class="result-section">
+                    <div class="result-header">
+                        🇹🇼 台灣證交所API測試 - ${symbol}
+                        <span style="font-size: 12px; color: #dc3545;">❌ 失敗</span>
+                    </div>
+                    <div class="result-content">
+                        <div class="error">❌ 錯誤: ${error.message}</div>
+                        <h4>🔗 API URL</h4>
+                        <div class="json-display">${apiUrl}</div>
+                        <h4>💡 建議</h4>
+                        <ul>
+                            <li>檢查股票代號是否正確</li>
+                            <li>確認股票是否在交易時間</li>
+                            <li>嘗試使用完整的代號格式 (如: 0050.TW)</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 測試國際股票API
+        async function testInternationalAPI(symbol) {
+            const resultsDiv = document.getElementById('results');
+            
+            // 顯示API資訊
+            resultsDiv.innerHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+                <div class="result-section">
+                    <div class="result-header">
+                        🌍 Yahoo Finance API測試 - ${symbol}
+                        <span style="font-size: 12px; color: #666;">國際股票</span>
+                    </div>
+                    <div class="result-content">
+                        <div class="loading">正在獲取資料...</div>
+                    </div>
+                </div>
+            `;
+
             try {
-                const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/VTI';
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
-                
-                resultDiv.innerHTML = '正在測試Yahoo Finance API...';
-                resultsDiv.appendChild(resultDiv);
-                
+
                 const response = await fetch(proxyUrl);
                 const data = await response.json();
                 const yahooData = JSON.parse(data.contents);
+
+                // 顯示完整JSON資料
+                displayInternationalResults(symbol, yahooData, yahooUrl);
                 
-                if (yahooData.chart && yahooData.chart.result && yahooData.chart.result.length > 0) {
-                    const result = yahooData.chart.result[0];
-                    const meta = result.meta;
-                    
-                    resultDiv.className = 'test-result success';
-                    resultDiv.innerHTML = `
-                        <h3>✅ Yahoo Finance API測試成功</h3>
-                        <p>股票代號: ${meta.symbol}</p>
-                        <p>目前價格: $${meta.regularMarketPrice || meta.previousClose}</p>
-                        <p>昨收價: $${meta.previousClose}</p>
-                        <p>貨幣: ${meta.currency}</p>
-                        <p>交易所: ${meta.exchangeName}</p>
-                    `;
-                } else {
-                    throw new Error('無法取得股票資料');
-                }
             } catch (error) {
-                resultDiv.className = 'test-result error';
-                resultDiv.innerHTML = `
-                    <h3>❌ Yahoo Finance API測試失敗</h3>
-                    <p>錯誤訊息: ${error.message}</p>
-                `;
+                showInternationalError(symbol, error, yahooUrl);
             }
         }
+
+        // 顯示國際股票結果
+        function displayInternationalResults(symbol, yahooData, yahooUrl) {
+            const resultsDiv = document.getElementById('results');
+            
+            let resultHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+                <div class="result-section">
+                    <div class="result-header">
+                        🌍 Yahoo Finance API測試 - ${symbol}
+                        <span style="font-size: 12px; color: #666;">✅ 成功</span>
+                    </div>
+                    <div class="result-content">
+            `;
+
+            if (yahooData.chart && yahooData.chart.result && yahooData.chart.result.length > 0) {
+                const result = yahooData.chart.result[0];
+                const meta = result.meta;
+                const price = meta.regularMarketPrice || meta.previousClose;
+                const change = meta.regularMarketPrice - meta.previousClose;
+                const changePercent = (change / meta.previousClose) * 100;
+
+                resultHTML += `
+                    <div class="success">✅ 成功獲取股價資料</div>
+                    <div class="price-display">
+                        <h4>📊 股價資訊</h4>
+                        <div class="price-item">
+                            <span class="price-label">股票代號:</span>
+                            <span class="price-value">${meta.symbol || symbol}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">股票名稱:</span>
+                            <span class="price-value">${meta.longName || meta.shortName || 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">目前價格:</span>
+                            <span class="price-value">$${price ? price.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">昨收價格:</span>
+                            <span class="price-value">$${meta.previousClose ? meta.previousClose.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">漲跌金額:</span>
+                            <span class="price-value ${change >= 0 ? 'positive' : 'negative'}">${change >= 0 ? '+' : ''}$${change.toFixed(2)}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">漲跌幅:</span>
+                            <span class="price-value ${changePercent >= 0 ? 'positive' : 'negative'}">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">成交量:</span>
+                            <span class="price-value">${meta.regularMarketVolume ? parseInt(meta.regularMarketVolume).toLocaleString() : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">開盤價:</span>
+                            <span class="price-value">$${meta.regularMarketOpen ? meta.regularMarketOpen.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">最高價:</span>
+                            <span class="price-value">$${meta.regularMarketDayHigh ? meta.regularMarketDayHigh.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">最低價:</span>
+                            <span class="price-value">$${meta.regularMarketDayLow ? meta.regularMarketDayLow.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">52週最高:</span>
+                            <span class="price-value">$${meta.fiftyTwoWeekHigh ? meta.fiftyTwoWeekHigh.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">52週最低:</span>
+                            <span class="price-value">$${meta.fiftyTwoWeekLow ? meta.fiftyTwoWeekLow.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">市值:</span>
+                            <span class="price-value">${meta.marketCap ? formatMarketCap(meta.marketCap) : 'N/A'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">貨幣:</span>
+                            <span class="price-value">${meta.currency || 'USD'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span class="price-label">交易所:</span>
+                            <span class="price-value">${meta.exchangeName || 'N/A'}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultHTML += `
+                    <div class="error">❌ 找不到股票資料，請檢查股票代號</div>
+                `;
+            }
+
+            resultHTML += `
+                    <h4>🔗 API URL</h4>
+                    <div class="json-display">${yahooUrl}</div>
+                    
+                    <h4>📄 完整JSON回應</h4>
+                    <div class="json-display">${JSON.stringify(yahooData, null, 2)}</div>
+                </div>
+            </div>
+            `;
+
+            resultsDiv.innerHTML = resultHTML;
+        }
+
+        // 顯示國際股票錯誤
+        function showInternationalError(symbol, error, yahooUrl) {
+            const resultsDiv = document.getElementById('results');
+            
+            resultsDiv.innerHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+                <div class="result-section">
+                    <div class="result-header">
+                        🌍 Yahoo Finance API測試 - ${symbol}
+                        <span style="font-size: 12px; color: #dc3545;">❌ 失敗</span>
+                    </div>
+                    <div class="result-content">
+                        <div class="error">❌ 錯誤: ${error.message}</div>
+                        <h4>🔗 API URL</h4>
+                        <div class="json-display">${yahooUrl}</div>
+                        <h4>💡 建議</h4>
+                        <ul>
+                            <li>檢查股票代號是否正確</li>
+                            <li>確認股票是否在Yahoo Finance上有資料</li>
+                            <li>嘗試使用不同的代號格式</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 格式化市值
+        function formatMarketCap(marketCap) {
+            if (marketCap >= 1e12) {
+                return `$${(marketCap / 1e12).toFixed(2)}T`;
+            } else if (marketCap >= 1e9) {
+                return `$${(marketCap / 1e9).toFixed(2)}B`;
+            } else if (marketCap >= 1e6) {
+                return `$${(marketCap / 1e6).toFixed(2)}M`;
+            } else {
+                return `$${marketCap.toLocaleString()}`;
+            }
+        }
+
+        // 顯示錯誤訊息
+        function showError(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `
+                <div class="api-info">
+                    <strong>📋 API說明：</strong><br>
+                    • <strong>台灣股票API：</strong>使用台灣證交所官方API (mis.twse.com.tw)<br>
+                    • <strong>國際股票API：</strong>使用Yahoo Finance API (query1.finance.yahoo.com)<br>
+                    • <strong>代理服務：</strong>使用allorigins.win解決CORS問題<br>
+                    • <strong>支援格式：</strong>台灣股票(.TW)、美股代號、ETF代號等
+                </div>
+                <div class="error">❌ ${message}</div>
+            `;
+        }
+
+        // 鍵盤快捷鍵
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                testAPIs();
+            }
+        });
     </script>
 </body>
 </html>
