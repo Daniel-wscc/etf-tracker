@@ -1,0 +1,192 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -608,
+        96
+      ],
+      "id": "1818d41e-e222-4890-bc2f-d84f7fbab611",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "etf_data"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        96
+      ],
+      "id": "44cfbc08-6916-4873-aa0c-ed0883b67879",
+      "name": "Get many rows",
+      "executeOnce": true,
+      "retryOnFail": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "HxuTzeHf02uarRR1",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "ogame033641685@gmail.com",
+        "toEmail": "ogame033641685@gmail.com",
+        "subject": "=ETF 投資組合每日報告 - {{ $('Process ETF Data').first().json.reportDate }}",
+        "html": "=<h2>📊 ETF 投資組合每日報告</h2>\n<p><strong>報告日期：</strong>{{ $('Process ETF Data').first().json.reportDate }}</p>\n\n<h3>📈 投資組合概覽</h3>\n<table border='1' style='border-collapse: collapse; width: 100%;'>\n  <tr style='background-color: #f2f2f2;'>\n    <th style='padding: 8px;'>代碼</th>\n    <th style='padding: 8px;'>名稱</th>\n    <th style='padding: 8px;'>持股數量</th>\n    <th style='padding: 8px;'>買進單價</th>\n    <th style='padding: 8px;'>總投資成本</th>\n    <th style='padding: 8px;'>當前價格</th>\n    <th style='padding: 8px;'>當前總價值</th>\n    <th style='padding: 8px;'>損益</th>\n    <th style='padding: 8px;'>收益率</th>\n    <th style='padding: 8px;'>狀態</th>\n    <th style='padding: 8px;'>數據來源</th>\n  </tr>\n  {{ $('Process ETF Data').all().map(item => `\n  <tr style='background-color: ${item.json.hasError ? '#ffe6e6' : 'white'};'>\n    <td style='padding: 8px;'>${item.json.symbol}</td>\n    <td style='padding: 8px;'>${item.json.stockName || item.json.symbol}</td>\n    <td style='padding: 8px;'>${item.json.shares}</td>\n    <td style='padding: 8px;'>$${item.json.unitCost.toFixed(2)} TWD</td>\n    <td style='padding: 8px;'>$${Math.round(item.json.cost)} TWD</td>\n    <td style='padding: 8px; color: ${item.json.hasError ? 'red' : 'black'};'>${item.json.hasError ? 'N/A' : '$' + item.json.currentPrice.toFixed(2) + ' TWD' + (item.json.currency === 'USD' ? '<br><small style=\"color: #666;\">($' + item.json.originalPrice.toFixed(2) + ' USD)</small>' : '')}</td>\n    <td style='padding: 8px; color: ${item.json.hasError ? 'red' : 'black'};'>${item.json.hasError ? 'N/A' : '$' + Math.round(item.json.totalValue) + ' TWD'}</td>\n    <td style='padding: 8px; color: ${item.json.hasError ? 'red' : (item.json.profit >= 0 ? 'green' : 'red')};'>${item.json.hasError ? 'N/A' : '$' + Math.round(item.json.profit) + ' TWD'}</td>\n    <td style='padding: 8px; color: ${item.json.hasError ? 'red' : (item.json.profitPercentage >= 0 ? 'green' : 'red')};'>${item.json.hasError ? 'N/A' : item.json.profitPercentage.toFixed(2) + '%'}</td>\n    <td style='padding: 8px; color: ${item.json.hasError ? 'red' : (item.json.profit >= 0 ? 'green' : 'red')};'>${item.json.hasError ? '錯誤' : item.json.profitStatus}</td>\n    <td style='padding: 8px; font-size: 10px;'>${item.json.apiSource}${item.json.currency === 'USD' ? '<br>匯率: ' + item.json.exchangeRate : ''}</td>\n  </tr>\n  `).join('') }}\n</table>\n\n<h3>💰 總計統計</h3>\n<p><strong>總投資成本：</strong>${{ Math.round($('Process ETF Data').all().reduce((sum, item) => sum + (item.json.cost || 0), 0)) }} TWD</p>\n<p><strong>總當前價值：</strong>${{ Math.round($('Process ETF Data').all().filter(item => !item.json.hasError).reduce((sum, item) => sum + (item.json.totalValue || 0), 0)) }} TWD <span style='color: red; font-size: 12px;'>(排除錯誤項目)</span></p>\n<p><strong>總損益：</strong><span style='color: {{ $('Process ETF Data').all().filter(item => !item.json.hasError).reduce((sum, item) => sum + (item.json.profit || 0), 0) >= 0 ? 'green' : 'red' }};'>${{ Math.round($('Process ETF Data').all().filter(item => !item.json.hasError).reduce((sum, item) => sum + (item.json.profit || 0), 0)) }} TWD</span> <span style='color: red; font-size: 12px;'>(排除錯誤項目)</span></p>\n<p><strong>總收益率：</strong><span style='color: {{ ($('Process ETF Data').all().filter(item => !item.json.hasError).reduce((sum, item) => sum + (item.json.profit || 0), 0) / Math.max($('Process ETF Data').all().reduce((sum, item) => sum + (item.json.cost || 0), 0), 1) * 100) >= 0 ? 'green' : 'red' }};'>{{ ($('Process ETF Data').all().filter(item => !item.json.hasError).reduce((sum, item) => sum + (item.json.profit || 0), 0) / Math.max($('Process ETF Data').all().reduce((sum, item) => sum + (item.json.cost || 0), 0), 1) * 100).toFixed(2) }}%</span> <span style='color: red; font-size: 12px;'>(排除錯誤項目)</span></p>\n\n<h3>💱 匯率資訊</h3>\n<p><strong>使用匯率：</strong>USD/TWD = {{ $('Get Exchange Rate').first().json.rates.TWD || 'N/A' }}</p>\n<p><strong>匯率更新時間：</strong>{{ $('Get Exchange Rate').first().json.date ? new Date($('Get Exchange Rate').first().json.date).toLocaleString('zh-TW') : 'N/A' }}</p>\n<p><strong>說明：</strong>美股ETF價格已自動轉換為台幣顯示，所有計算均以台幣為基準。匯率數據來自 ExchangeRate-API。</p>\n\n<h3>⚠️ 錯誤項目</h3>\n{{ $('Process ETF Data').all().filter(item => item.json.hasError).length > 0 ? `<p style='color: red;'>有 ${$('Process ETF Data').all().filter(item => item.json.hasError).length} 個項目無法獲取價格數據，請檢查股票代碼格式。</p>` : `<p style='color: green;'>✅ 所有項目都成功獲取價格數據</p>` }}\n\n<p style='margin-top: 20px; font-size: 12px; color: #666;'>此報告由 n8n 自動生成，數據來源於 Yahoo Finance API，匯率轉換已自動處理。</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        528,
+        96
+      ],
+      "id": "700d8667-49a3-4162-94ab-a1dcb8f86683",
+      "name": "Send ETF Report",
+      "webhookId": "060433d2-75e4-471b-87f8-867f3c314a18",
+      "executeOnce": true,
+      "alwaysOutputData": false,
+      "credentials": {
+        "smtp": {
+          "id": "vpxYVWEMehSyMV4j",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{ $json.symbol }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        144,
+        96
+      ],
+      "id": "4366bf70-370c-40ec-b279-6dade695553f",
+      "name": "Get ETF Price (Yahoo Finance)",
+      "executeOnce": false,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 智能處理單個 ETF 數據並計算收益 (Run Once for Each Item 模式)\n\n// 股票代碼格式轉換函數\nfunction formatSymbolForYahoo(symbol) {\n  // 檢查 symbol 是否存在且為字符串\n  if (!symbol || typeof symbol !== 'string') {\n    return 'UNKNOWN';\n  }\n  \n  // 移除 .TW 後綴\n  let formattedSymbol = symbol.replace(/\\.TW$/i, '');\n  \n  // 台股 ETF 需要添加 .TW 後綴\n  if (/^\\d{4,5}$/.test(formattedSymbol)) {\n    return formattedSymbol + '.TW';\n  }\n  \n  // 美股和其他國際股票保持原樣\n  return formattedSymbol;\n}\n\n// 安全獲取數值的函數\nfunction safeParseFloat(value, defaultValue = 0) {\n  if (value === null || value === undefined || value === '') {\n    return defaultValue;\n  }\n  const parsed = parseFloat(value);\n  return isNaN(parsed) ? defaultValue : parsed;\n}\n\n// 判斷是否為台灣股票\nfunction isTaiwanStock(symbol) {\n  if (!symbol || typeof symbol !== 'string') return false;\n  return symbol.toLowerCase().includes('.tw') || \n         /^\\d{4}$/.test(symbol) || \n         /^\\d{5}$/.test(symbol);\n}\n\n// 獲取匯率 (從 ExchangeRate-API 獲取最新匯率)\nfunction getExchangeRate() {\n  try {\n    // 從 Get Exchange Rate 節點獲取最新匯率\n    const exchangeRateData = $('Get Exchange Rate').first().json;\n    if (exchangeRateData && exchangeRateData.rates && exchangeRateData.rates.TWD) {\n      return parseFloat(exchangeRateData.rates.TWD);\n    }\n  } catch (error) {\n    console.warn('無法獲取匯率數據，使用預設值:', error);\n  }\n  \n  // 如果無法獲取匯率，使用預設值\n  return 31.5;\n}\n\ntry {\n  // 在 Run Once for Each Item 模式下，從 Get many rows 節點獲取原始 ETF 數據\n  const etfData = $('Get many rows').item.json;\n  \n  // 驗證必要欄位\n  if (!etfData) {\n    return {\n      json: {\n        symbol: 'UNKNOWN',\n        formattedSymbol: 'UNKNOWN',\n        stockName: '數據錯誤',\n        shares: 0,\n        cost: 0,\n        currentPrice: 0,\n        totalValue: 0,\n        profit: 0,\n        profitPercentage: 0,\n        profitStatus: '錯誤',\n        apiSource: '數據驗證失敗',\n        errorMessage: 'ETF 數據為空或無效',\n        hasError: true,\n        lastUpdated: new Date().toLocaleString('zh-TW')\n      }\n    };\n  }\n  \n  // 從上一個節點獲取價格數據 - 在 Run Once for Each Item 模式下使用 .item.json\n  const priceData = $('Get ETF Price (Yahoo Finance)').item.json;\n  \n  // 從 Yahoo Finance API 解析價格\n  let currentPrice = 0;\n  let originalPrice = 0; // 原始價格（美元）\n  let stockName = etfData.symbol || 'UNKNOWN';\n  let apiSource = 'Yahoo Finance';\n  let errorMessage = '';\n  let currency = 'TWD'; // 預設為台幣\n  \n  // 檢查是否有錯誤\n  if (priceData && priceData.chart && priceData.chart.error) {\n    errorMessage = `API 錯誤: ${priceData.chart.error.description || '未知錯誤'}`;\n    apiSource = 'Yahoo Finance (錯誤)';\n  } else if (priceData && priceData.chart && priceData.chart.result && priceData.chart.result.length > 0) {\n    const result = priceData.chart.result[0];\n    const meta = result.meta;\n    originalPrice = meta.regularMarketPrice || meta.previousClose || 0;\n    stockName = meta.longName || meta.shortName || etfData.symbol || 'UNKNOWN';\n    currency = meta.currency || 'USD';\n    \n    // 判斷是否為台股，如果不是台股則需要匯率轉換\n    const isTaiwan = isTaiwanStock(etfData.symbol);\n    if (isTaiwan) {\n      // 台股直接使用原價格（已經是台幣）\n      currentPrice = originalPrice;\n      currency = 'TWD';\n    } else {\n      // 美股需要轉換為台幣\n      const exchangeRate = getExchangeRate();\n      currentPrice = originalPrice * exchangeRate;\n      currency = 'USD';\n    }\n    \n    // 如果價格為 0，可能是數據問題\n    if (currentPrice === 0) {\n      errorMessage = '無法獲取有效價格數據';\n    }\n  } else {\n    errorMessage = 'API 返回空數據或無效響應';\n    apiSource = 'Yahoo Finance (無數據)';\n  }\n  \n  // 安全計算收益\n  const unitCost = safeParseFloat(etfData.cost, 0); // 單價（保持精確度）\n  const shares = safeParseFloat(etfData.shares, 0); // 持股數量\n  const totalCost = unitCost * shares; // 總投資成本（精確計算）\n  const totalValue = currentPrice * shares; // 當前總價值（精確計算）\n  const profit = totalValue - totalCost; // 損益（精確計算）\n  const profitPercentage = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0; // 收益率（精確計算）\n  \n  // 格式化數據\n  const processedData = {\n    symbol: etfData.symbol || 'UNKNOWN',\n    formattedSymbol: formatSymbolForYahoo(etfData.symbol),\n    stockName: stockName,\n    shares: shares,\n    unitCost: unitCost, // 單價（台幣）\n    cost: totalCost, // 總投資成本（台幣）\n    currentPrice: currentPrice, // 當前價格（台幣）\n    originalPrice: originalPrice, // 原始價格（美元，如果是美股）\n    totalValue: totalValue, // 當前總價值（台幣）\n    profit: profit, // 損益（台幣）\n    profitPercentage: profitPercentage, // 收益率\n    profitStatus: profit >= 0 ? '盈利' : '虧損',\n    currency: currency, // 原始貨幣\n    exchangeRate: currency === 'USD' ? getExchangeRate() : 1, // 使用的匯率\n    apiSource: apiSource,\n    errorMessage: errorMessage,\n    hasError: errorMessage !== '',\n    lastUpdated: new Date().toLocaleString('zh-TW'),\n    reportDate: new Date().toLocaleDateString('zh-TW') // 報告日期\n  };\n  \n  return { json: processedData };\n  \n} catch (error) {\n  // 捕獲任何未預期的錯誤\n  return {\n    json: {\n      symbol: 'ERROR',\n      formattedSymbol: 'ERROR',\n      stockName: '處理錯誤',\n      shares: 0,\n      cost: 0,\n      currentPrice: 0,\n      totalValue: 0,\n      profit: 0,\n      profitPercentage: 0,\n      profitStatus: '錯誤',\n      apiSource: '處理失敗',\n      errorMessage: `處理錯誤: ${error.message}`,\n      hasError: true,\n      lastUpdated: new Date().toLocaleString('zh-TW')\n    }\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        96
+      ],
+      "id": "2488a27d-532e-4436-bdc0-7ffb9491d30f",
+      "name": "Process ETF Data"
+    },
+    {
+      "parameters": {
+        "url": "https://api.exchangerate-api.com/v4/latest/USD",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -400,
+        96
+      ],
+      "id": "be5535ad-711c-4b97-bd20-7424b47ee1f6",
+      "name": "Get Exchange Rate",
+      "executeOnce": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Exchange Rate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Get ETF Price (Yahoo Finance)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get ETF Price (Yahoo Finance)": {
+      "main": [
+        [
+          {
+            "node": "Process ETF Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process ETF Data": {
+      "main": [
+        [
+          {
+            "node": "Send ETF Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Exchange Rate": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveExecutionProgress": true
+  },
+  "versionId": "e5968eee-6cb2-42cf-b91b-dea0ad576120",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6f079d2fd3a01e6d8b31442e3a4a565d558664b94577a455af30e07600845d5d"
+  },
+  "id": "zwaXgpDmCzLlD3pp",
+  "tags": []
+}
