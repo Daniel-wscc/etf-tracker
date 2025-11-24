@@ -6,7 +6,26 @@
     <title>ETF股價追蹤表格</title>
     <!-- Supabase -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Varela+Round&display=swap" rel="stylesheet">
+
     <style>
+        :root {
+            --ac-green: #78C850;
+            --ac-green-dark: #5DA537;
+            --ac-cream: #FDFBEA;
+            --ac-blue: #55C1DE;
+            --ac-brown: #795548;
+            --ac-brown-dark: #5D4037;
+            --ac-yellow: #F9E076;
+            --ac-orange: #FF9F43;
+            --ac-red: #FF6B6B;
+            --ac-text: #5D4037;
+            --ac-border: #C7B299;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -14,219 +33,388 @@
         }
 
         body {
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background-color: #f5f5f5;
+            font-family: 'Varela Round', 'Nunito', sans-serif;
+            background-color: var(--ac-cream);
+            background-image: radial-gradient(var(--ac-green) 15%, transparent 16%),
+                            radial-gradient(var(--ac-green) 15%, transparent 16%);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+            color: var(--ac-text);
             padding: 20px;
+            min-height: 100vh;
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 30px;
+            box-shadow: 0 10px 0 rgba(0,0,0,0.1);
             overflow: hidden;
+            border: 8px solid white;
+            position: relative;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 15px;
+            background: repeating-linear-gradient(
+                45deg,
+                var(--ac-blue),
+                var(--ac-blue) 20px,
+                white 20px,
+                white 40px
+            );
+            z-index: 100;
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--ac-green);
             color: white;
-            padding: 20px;
+            padding: 40px 20px 30px;
             text-align: center;
+            position: relative;
+            border-bottom: 5px dashed rgba(255,255,255,0.5);
         }
 
         .header h1 {
             margin-bottom: 10px;
-            font-size: 2em;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+            background: white;
+            color: var(--ac-green-dark);
+            display: inline-block;
+            padding: 10px 30px;
+            border-radius: 50px;
+            transform: rotate(-2deg);
+            box-shadow: 3px 3px 0 rgba(0,0,0,0.1);
+        }
+
+        .header p {
+            margin-top: 15px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 0 rgba(0,0,0,0.1);
         }
 
         .controls {
-            padding: 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
+            padding: 30px;
+            background: #fff;
+            border-bottom: 2px dashed var(--ac-border);
         }
 
         .control-group {
             display: flex;
-            gap: 10px;
+            gap: 15px;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             flex-wrap: wrap;
+            background: var(--ac-cream);
+            padding: 15px;
+            border-radius: 20px;
+            border: 2px solid var(--ac-border);
         }
 
         .control-group label {
             font-weight: bold;
-            min-width: 80px;
+            color: var(--ac-brown);
+            font-size: 1.1em;
         }
 
-        .control-group input, .control-group select {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
+        .control-group input, .control-group select, .card input, .flex-wrap input {
+            padding: 10px 15px;
+            border: 2px solid var(--ac-border);
+            border-radius: 15px;
+            font-size: 16px;
+            font-family: 'Varela Round', sans-serif;
+            color: var(--ac-brown);
+            background: white;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .control-group input:focus, .control-group select:focus, .card input:focus, .flex-wrap input:focus {
+            border-color: var(--ac-blue);
+            box-shadow: 0 0 0 3px rgba(85, 193, 222, 0.2);
         }
 
         .btn {
-            background: #007bff;
+            background: var(--ac-blue);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
+            padding: 10px 25px;
+            border-radius: 25px;
             cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
+            font-size: 16px;
+            font-weight: bold;
+            font-family: 'Varela Round', sans-serif;
+            transition: all 0.1s;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+            transform: translateY(0);
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 rgba(0,0,0,0.1);
         }
 
         .btn:hover {
-            background: #0056b3;
+            filter: brightness(1.1);
         }
 
         .btn-success {
-            background: #28a745;
-        }
-
-        .btn-success:hover {
-            background: #1e7e34;
+            background: var(--ac-green);
         }
 
         .btn-danger {
-            background: #dc3545;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
+            background: var(--ac-red);
         }
 
         .table-container {
             overflow-x: auto;
-            padding: 20px;
+            padding: 30px;
         }
 
         table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0 8px;
             margin-top: 10px;
         }
 
         th, td {
-            padding: 12px 8px;
+            padding: 15px;
             text-align: center;
-            border: 1px solid #dee2e6;
-            font-size: 14px;
+            font-size: 15px;
         }
 
         th {
-            background: #f8f9fa;
+            background: var(--ac-brown);
+            color: white;
             font-weight: bold;
-            position: sticky;
-            top: 0;
+            border: none;
+        }
+
+        th:first-child { border-radius: 15px 0 0 15px; }
+        th:last-child { border-radius: 0 15px 15px 0; }
+
+        tr {
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+
+        tbody tr {
+            background: white;
+        }
+
+        tbody tr:hover {
+            transform: scale(1.01);
+            background: #fff;
             z-index: 10;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
-        tr:nth-child(even) {
-            background: #f8f9fa;
+        tbody td {
+            border-top: 2px solid var(--ac-cream);
+            border-bottom: 2px solid var(--ac-cream);
         }
 
-        tr:hover {
-            background: #e3f2fd;
+        tbody td:first-child {
+            border-left: 2px solid var(--ac-cream);
+            border-radius: 15px 0 0 15px;
+            font-weight: bold;
+            color: var(--ac-blue);
+        }
+
+        tbody td:last-child {
+            border-right: 2px solid var(--ac-cream);
+            border-radius: 0 15px 15px 0;
         }
 
         .positive {
-            color: #28a745;
+            color: var(--ac-green-dark);
             font-weight: bold;
+            background: rgba(120, 200, 80, 0.1);
+            padding: 5px 10px;
+            border-radius: 10px;
         }
 
         .negative {
-            color: #dc3545;
+            color: var(--ac-red);
             font-weight: bold;
-        }
-
-        .editable {
-            background: #fff3cd;
-            cursor: pointer;
-        }
-
-        .editable:hover {
-            background: #ffeaa7;
-        }
-
-        .price-update-failed {
-            background-color: #ffebee !important;
-        }
-
-        .price-update-failed:hover {
-            background-color: #ffcdd2 !important;
+            background: rgba(255, 107, 107, 0.1);
+            padding: 5px 10px;
+            border-radius: 10px;
         }
 
         .summary {
-            padding: 20px;
-            background: #f8f9fa;
-            border-top: 1px solid #dee2e6;
+            padding: 30px;
+            background: var(--ac-cream);
+            border-top: 5px dashed var(--ac-border);
+        }
+
+        .summary h2 {
+            color: var(--ac-brown);
+            font-size: 1.8em;
+            text-align: center;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .summary h2::before, .summary h2::after {
+            content: '🍃';
+            font-size: 0.8em;
         }
 
         .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
         }
 
         .summary-item {
             background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            border-radius: 25px;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.05);
             text-align: center;
+            border: 2px solid var(--ac-border);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .summary-item::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 30px;
+            height: 30px;
+            background: var(--ac-yellow);
+            border-radius: 0 0 0 25px;
         }
 
         .summary-item h3 {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 5px;
+            color: var(--ac-brown);
+            font-size: 16px;
+            margin-bottom: 10px;
+            opacity: 0.8;
         }
 
         .summary-item .value {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
+            color: var(--ac-blue);
         }
 
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #666;
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
         }
-
-        .error {
-            color: #dc3545;
-            text-align: center;
-            padding: 10px;
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 4px;
-            margin: 10px 0;
+        ::-webkit-scrollbar-track {
+            background: var(--ac-cream);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--ac-border);
+            border-radius: 6px;
+            border: 3px solid var(--ac-cream);
         }
 
         @media (max-width: 768px) {
+            .container {
+                border-radius: 0;
+                border: none;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+                transform: none;
+            }
+            
             .control-group {
                 flex-direction: column;
                 align-items: stretch;
             }
             
-            .control-group label {
-                min-width: auto;
+            .btn {
+                width: 100%;
+                margin-bottom: 5px;
             }
-            
-            th, td {
-                padding: 8px 4px;
-                font-size: 12px;
-            }
-            
-            #allocationAnalysis {
-                grid-template-columns: 1fr !important;
-            }
-            
-            .summary-grid {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
-            }
+        }
+
+        /* New Helper Classes */
+        .login-status {
+            margin-top: 15px; 
+            padding: 10px; 
+            background: rgba(255,255,255,0.2); 
+            border-radius: 15px; 
+            font-size: 14px;
+            border: 2px dashed rgba(255,255,255,0.5);
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 25px;
+            margin-bottom: 20px;
+            border: 2px solid var(--ac-border);
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.05);
+        }
+
+        .allocation-analysis {
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 20px;
+        }
+
+        .allocation-list {
+            max-height: 300px; 
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .allocation-advice {
+            font-size: 15px; 
+            line-height: 1.6;
+            color: var(--ac-brown);
+            background: var(--ac-cream);
+            padding: 15px;
+            border-radius: 15px;
+        }
+
+        .grid-inputs {
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 15px;
+        }
+
+        .input-full {
+            width: 100% !important;
+        }
+
+        .text-small {
+            font-size: 12px; 
+            color: var(--ac-brown); 
+            opacity: 0.8;
+        }
+        
+        .flex-wrap {
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 15px; 
+            flex-wrap: wrap;
         }
     </style>
 </head>
@@ -235,7 +423,7 @@
         <div class="header">
             <h1>📈 ETF股價追蹤表格</h1>
             <p>追蹤您的ETF投資組合，包含成本、股息、總資產等資訊</p>
-            <div id="loginStatus" style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; font-size: 14px;">
+            <div id="loginStatus" class="login-status">
                 <span style="color: orange;">載入中...</span>
             </div>
         </div>
@@ -243,17 +431,17 @@
         <div class="controls">
             <div class="control-group">
                 <label>ETF代號:</label>
-                <input type="text" id="etfSymbol" placeholder="例如: 0050.TW" style="width: 150px;" onchange="updateCostCurrency()">
+                <input type="text" id="etfSymbol" placeholder="例如: 0050.TW" onchange="updateCostCurrency()">
                 <label>購買股數:</label>
-                <input type="number" id="shares" placeholder="股數" style="width: 100px;">
+                <input type="number" id="shares" placeholder="股數">
                 <label>購買成本:</label>
-                <input type="number" id="cost" placeholder="每股成本" step="0.01" style="width: 100px;">
-                <span id="costCurrency" style="font-size: 12px; color: #666; margin-left: 5px;">TWD</span>
+                <input type="number" id="cost" placeholder="每股成本" step="0.01">
+                <span id="costCurrency" class="text-small" style="margin-left: 5px;">TWD</span>
                 <button class="btn btn-success" onclick="addETF()">新增ETF</button>
             </div>
             <div class="control-group">
                 <label>常見ETF:</label>
-                <select id="popularETF" onchange="fillPopularETF()" style="width: 120px;">
+                <select id="popularETF" onchange="fillPopularETF()">
                     <option value="">選擇ETF</option>
                     <option value="0050.TW">0050 元大台灣50</option>
                     <option value="0056.TW">0056 元大高股息</option>
@@ -271,8 +459,8 @@
                 <button class="btn" onclick="refreshAllPrices()">🔄 更新所有股價</button>
                 <button class="btn" onclick="updateExchangeRate()">💱 更新匯率</button>
                 <label>美元匯率:</label>
-                <input type="number" id="usdRate" step="0.01" min="20" max="40" style="width: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="updateManualExchangeRate()">
-                <span id="rateUpdate" style="font-size: 12px; color: #666;"></span>
+                <input type="number" id="usdRate" step="0.01" min="20" max="40" onchange="updateManualExchangeRate()">
+                <span id="rateUpdate" class="text-small"></span>
             </div>
             <div class="control-group">
                 <button class="btn" onclick="exportData()">📤 匯出資料</button>
@@ -342,18 +530,18 @@
             <!-- 資產配置分析 -->
             <div style="background: white; padding: 20px; border-radius: 8px; margin-top: 20px;">
                 <h3 style="margin-bottom: 15px; text-align: center;">📊 資產配置分析</h3>
-                <div id="allocationAnalysis" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div id="allocationAnalysis" class="allocation-analysis">
                     <!-- 配置列表 -->
                     <div>
                         <h4 style="margin-bottom: 10px;">配置明細</h4>
-                        <div id="allocationList" style="max-height: 300px; overflow-y: auto;">
+                        <div id="allocationList" class="allocation-list">
                         </div>
                     </div>
                     
                     <!-- 配置建議 -->
                     <div>
                         <h4 style="margin-bottom: 10px;">配置建議</h4>
-                        <div id="allocationAdvice" style="font-size: 14px; line-height: 1.6;">
+                        <div id="allocationAdvice" class="allocation-advice">
                         </div>
                     </div>
                 </div>
@@ -365,28 +553,28 @@
             <h2 style="margin-bottom: 20px; text-align: center;">🎯 GK動態提領法</h2>
             
             <!-- GK設定區 -->
-            <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <div class="card">
                 <h3 style="margin-bottom: 15px;">⚙️ GK提領設定</h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                <div class="grid-inputs">
                     <div>
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">初始提領率 (%):</label>
-                        <input type="number" id="initialRate" step="0.1" min="0" max="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="number" id="initialRate" step="0.1" min="0" max="10" class="input-full">
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">投資組合起始價值:</label>
-                        <input type="number" id="startValue" step="1000" min="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="number" id="startValue" step="1000" min="0" class="input-full">
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">最大增幅 (%):</label>
-                        <input type="number" id="maxIncrease" step="1" min="0" max="50" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="number" id="maxIncrease" step="1" min="0" max="50" class="input-full">
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">最大減幅 (%):</label>
-                        <input type="number" id="maxDecrease" step="1" min="0" max="50" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="number" id="maxDecrease" step="1" min="0" max="50" class="input-full">
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">前一年通膨率 (%):</label>
-                        <input type="number" id="inflationRate" step="0.1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="number" id="inflationRate" step="0.1" class="input-full">
                     </div>
                 </div>
                 <div style="text-align: center;">
@@ -397,7 +585,7 @@
             </div>
 
             <!-- GK狀態顯示 -->
-            <div id="gkStatus" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <div id="gkStatus" class="card">
                 <h3 style="margin-bottom: 15px;">📈 目前GK狀態</h3>
                 <div class="summary-grid">
                     <div class="summary-item">
@@ -420,15 +608,15 @@
             </div>
 
             <!-- 年度記錄區 -->
-            <div style="background: white; padding: 20px; border-radius: 8px;">
+            <div class="card">
                 <h3 style="margin-bottom: 15px;">📅 年度報酬率記錄</h3>
-                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-                    <input type="number" id="recordYear" placeholder="年份" min="2000" max="2100" style="width: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <input type="number" id="yearReturn" placeholder="報酬率 (%)" step="0.01" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <input type="number" id="yearStartValue" placeholder="年初資產" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <input type="number" id="yearEndValue" placeholder="年末資產" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <input type="number" id="yearWithdrawal" placeholder="實際提領" step="1000" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <input type="number" id="yearInflation" placeholder="通膨率 (%)" step="0.01" style="width: 120px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <div class="flex-wrap">
+                    <input type="number" id="recordYear" placeholder="年份" min="2000" max="2100" style="width: 100px;">
+                    <input type="number" id="yearReturn" placeholder="報酬率 (%)" step="0.01" style="width: 120px;">
+                    <input type="number" id="yearStartValue" placeholder="年初資產" step="1000" style="width: 120px;">
+                    <input type="number" id="yearEndValue" placeholder="年末資產" step="1000" style="width: 120px;">
+                    <input type="number" id="yearWithdrawal" placeholder="實際提領" step="1000" style="width: 120px;">
+                    <input type="number" id="yearInflation" placeholder="通膨率 (%)" step="0.01" style="width: 120px;">
                     <button class="btn btn-success" onclick="addYearlyRecord()">新增記錄</button>
                     <button class="btn" onclick="autoCalculateCurrentYear()">自動計算本年</button>
                 </div>
