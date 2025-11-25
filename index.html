@@ -2010,22 +2010,24 @@
             if (statusElement) {
                 if (currentUser) {
                     const autoSyncText = autoSyncEnabled ? '自動同步: 開啟' : '自動同步: 關閉';
-                    const autoSyncColor = autoSyncEnabled ? 'green' : 'orange';
+                    const autoSyncClass = autoSyncEnabled ? 'positive' : 'negative';
 
                     statusElement.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                            <span style="color: green;">✓ 已登入: ${currentUser.email}</span>
-                            <span style="color: ${autoSyncColor}; font-size: 12px;">${autoSyncText}</span>
-                            <button onclick="toggleAutoSync()" style="font-size: 12px;">${autoSyncEnabled ? '關閉' : '開啟'}自動同步</button>
-                            <button onclick="syncAllDataToCloud(true)" style="font-size: 12px;">手動同步</button>
-                            <button onclick="logoutUser()" style="font-size: 12px;">登出</button>
-                            <span id="syncStatus" style="color: #666; font-size: 11px;"></span>
+                        <div class="flex-wrap" style="align-items: center; margin-bottom: 0;">
+                            <span class="positive">✓ 已登入: ${currentUser.email}</span>
+                            <span class="${autoSyncClass}" style="font-size: 12px;">${autoSyncText}</span>
+                            <button class="btn" onclick="toggleAutoSync()" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0;">${autoSyncEnabled ? '關閉' : '開啟'}自動同步</button>
+                            <button class="btn" onclick="syncAllDataToCloud(true)" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0;">手動同步</button>
+                            <button class="btn btn-danger" onclick="logoutUser()" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0;">登出</button>
+                            <span id="syncStatus" class="text-small"></span>
                         </div>
                     `;
                 } else {
                     statusElement.innerHTML = `
-                        <span style="color: orange;">未登入 (僅本地儲存)</span>
-                        <button onclick="loginUser()" style="margin-left: 10px;">登入</button>
+                        <div class="flex-wrap" style="align-items: center; margin-bottom: 0;">
+                            <span class="negative">未登入 (僅本地儲存)</span>
+                            <button class="btn" onclick="loginUser()" style="font-size: 12px; padding: 5px 10px; width: auto; margin: 0;">登入</button>
+                        </div>
                     `;
                 }
             }
